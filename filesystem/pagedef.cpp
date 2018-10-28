@@ -1,2 +1,2 @@
-int current = 0;
-int tt = 0;
+//int current = 0;
+//int tt = 0;

@@ -155,7 +155,6 @@ void checkFixed(){
     for (int i=0;i<5;i++){
         assert(it5 != nullptr);
         it5 = ff->nextData();
-        printf("%d %d %d\n", ff->header->pageNum, ff->getCurrentRID().pagenum, ff->getCurrentRID().slotnum);
     }
     assert(it5 == nullptr);
 
@@ -166,7 +165,7 @@ void checkFixed(){
 
 int main(){
     srand((unsigned int)time(NULL));
-    //checkUnfixed();
+    checkUnfixed();
     checkFixed();
     return 0;
 }

@@ -31,6 +31,7 @@ public:
 		b = addr[index];
 		if (b == NULL) {
 			b = allocMem();
+			memset(b, 0, (PAGE_SIZE >> 2));
 			addr[index] = b;
 		} else {
 			if (dirty[index]) {

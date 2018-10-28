@@ -27,7 +27,7 @@
 using namespace std;
 
 int main() {
-	MyBitMap::initConst();   //新加的初始化
+	//MyBitMap::initConst();   //新加的初始化
 	FileManager* fm = new FileManager();
 	BufPageManager* bpm = new BufPageManager(fm);
 	fm->createFile("testfile.txt"); //新建文件

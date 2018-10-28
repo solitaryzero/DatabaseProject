@@ -52,6 +52,6 @@ typedef long long ll;
 typedef double db;
 typedef int INT;
 typedef int(cf)(uchar*, uchar*);
-extern int current;
-extern int tt;
+//extern int current;
+//extern int tt;
 #endif

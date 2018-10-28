@@ -10,7 +10,6 @@ FixedRecordFile::FixedRecordFile(string filename){
 
     this->bpm = make_shared<BufPageManager>(fm);
     this->header = (FixedRecordFileHeader*)this->bpm->getPage(this->fileID, 0, this->headerIndex);
-    printf("%d\n", *(int*)this->header);
     if (this->header->isValid == 0){
         this->header->isValid = 1;
         this->header->pageNum = 1;
