@@ -143,6 +143,13 @@ public:
 		for (int i = 0; i < CAP; ++ i) {
 			writeBack(i);
 		}
+		
+		delete(this->fileManager);
+		delete(this->hash);
+		delete(this->replace);
+		delete(dirty);
+		delete(addr);
+		
 	}
 	/*
 	 * @函数名getKey

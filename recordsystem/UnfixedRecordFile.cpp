@@ -10,6 +10,7 @@ UnfixedRecordFile::UnfixedRecordFile(string filename){
 
     this->bpm = make_shared<BufPageManager>(fm);
     this->header = (UnfixedRecordFileHeader*)this->bpm->getPage(this->fileID, 0, this->headerIndex);
+    printf("%d\n", *(int*)this->header);
     if (this->header->isValid == 0){
         this->header->isValid = 1;
         this->header->pageNum = 1;
@@ -34,7 +35,7 @@ RID UnfixedRecordFile::insertData(data_ptr dat){
         lastFreeOffset = *(int*)(page+PAGE_SIZE-4);
         slotNum = *(int*)(page+PAGE_SIZE-8);
         availableSpace = PAGE_SIZE-8-lastFreeOffset-8*slotNum;
-        if (availableSpace-8 >= dat->size()){
+        if (availableSpace-8 >= (int)dat->size()){
             break;
         }
         this->currentPage++;
@@ -129,6 +130,7 @@ data_ptr UnfixedRecordFile::nextData(){
         while (this->currentSlot >= slotNum){
             this->currentPage++;
             this->currentSlot = 0;
+            page = (unsigned char*)(this->bpm->getPage(this->fileID, this->currentPage, index));
             slotNum = *(int*)(page+PAGE_SIZE-8);
             if (this->currentPage > this->header->pageNum){
                 return nullptr;
@@ -147,4 +149,5 @@ data_ptr UnfixedRecordFile::nextData(){
 void UnfixedRecordFile::closeFile(){
     assert(this->bpm != nullptr);
     this->bpm->close();
+    this->bpm = nullptr;
 }

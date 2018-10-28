@@ -4,6 +4,21 @@
 #include "../common.h"
 #include "RID.h"
 
+/*
+Unfixed record file format:
+    Page0: file header
+    Page1-n: data
+
+Data page format:
+    --page header--
+    data*n
+    unused space
+    [offset of data[i], size of data[i]](8 bytes)*n
+    last free offset(4 bytes)
+    used slot numbers in this page(4 bytes)
+    --page end--
+*/
+
 struct UnfixedRecordFileHeader{
     int isValid;
     int pageNum;
