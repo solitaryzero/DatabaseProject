@@ -7,7 +7,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
-//#include "../MyLinkList.h"
+
+#include "../utils/MyLinkList.h"
+#include "../utils/MyBitMap.h"
+#include "../utils/MyHashMap.h"
+#include "../utils/compare.h"
+#include "../utils/pagedef.h"
+
 using namespace std;
 class FileManager {
 private:
@@ -112,17 +118,8 @@ public:
 	 * 功能:打开文件
 	 * 返回:如果成功打开，在fileID中存储为该文件分配的id，返回true，否则返回false
 	 */
-	bool openFile(const char* name, int& fileID) {
-		fileID = fm->findLeftOne();
-		fm->setBit(fileID, 0);
-		_openFile(name, fileID);
-		return true;
-	}
-	int newType() {
-		int t = tm->findLeftOne();
-		tm->setBit(t, 0);
-		return t;
-	}
+	bool openFile(const char* name, int& fileID);
+	int newType();
 	void closeType(int typeID) {
 		tm->setBit(typeID, 1);
 	}

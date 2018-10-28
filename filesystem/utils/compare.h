@@ -8,7 +8,6 @@
 #ifndef PARSER_H_
 #define PARSER_H_
 
-#include "../bplustree/BPlusTree.h"
 #include "pagedef.h"
 #include <cstring>
 using namespace std;
@@ -29,31 +28,12 @@ using namespace std;
 #define RANGE 1
 #define ISNULL 2
 #define NOTHING 3
-int tmp = 0;
+extern int tmp;
 template<class Key>
-int keyu(uchar* a, uchar* b) {
-	Key c, d;
-	memcpy(&c, a, sizeof(Key));
-	memcpy(&d, b, sizeof(Key));
-	return ((c < d) ? -1 : ((c > d) ? 1 : 0));
-}
+extern int keyu(uchar* a, uchar* b);
 template<class Key>
-int keyn(uchar* a, uchar* b) {
-    int res = keyu<Key>(a, b);
-    return (res != 0) ? res : keyu<ll>(a + sizeof(Key), b + sizeof(Key));
-}
-int su(uchar* a, uchar* b) {
-	int res = strcmp((char*)a, (char*)b);
-	return (res > 0) ? 1 : ((res < 0) ? -1 : 0);
-}
-int sn(uchar* a, uchar* b) {
-	int res = strcmp((char*)a, (char*)b);
-	res = (res > 0) ? 1 : ((res < 0) ? -1 : 0);
-	return (res != 0) ? res : keyu<ll>(a + tmp, b + tmp);
-}
-cf* kcmp[3][2] = {
-	{&keyu<ll>, &keyn<ll>},
-	{&keyu<db>, &keyn<db>},
-	{&su, &sn}
-};
+extern int keyn(uchar* a, uchar* b);
+extern int su(uchar* a, uchar* b);
+extern int sn(uchar* a, uchar* b);
+extern cf* kcmp[3][2];
 #endif /* PARSER_H_ */

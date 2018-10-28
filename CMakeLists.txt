@@ -2,16 +2,19 @@ cmake_minimum_required(VERSION 2.6)
 project (DatabaseProject)
 add_compile_options(--std=c++14 -Wall -g -O3)
 
-set(MODULES recordsystem)
+set(MODULES filesystem recordsystem)
 set(NOEMPTY_MODULES "")
 foreach(M ${MODULES})
     file(GLOB_RECURSE SOURCES ${M}/*.cpp)
     if(SOURCES)
         add_library(${M} STATIC ${SOURCES})
+        target_link_libraries(${M} ${NOEMPTY_MODULES})
         target_include_directories(${M} PUBLIC .)
         set(NOEMPTY_MODULES ${NOEMPTY_MODULES} ${M})
     endif()
 endforeach()
+
+message(STATUS ${NOEMPTY_MODULES})
 
 file(GLOB TARGETS_CPP test/*.cpp)
 
