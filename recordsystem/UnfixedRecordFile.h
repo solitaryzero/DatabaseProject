@@ -21,10 +21,14 @@ public:
     RID updateData(RID target, data_ptr dat);
 
     RID getCurrentRID();
+    data_ptr firstData();
+    data_ptr nextData();
+
+    void closeFile();
 
     shared_ptr<BufPageManager> bpm = nullptr;
     UnfixedRecordFileHeader *header = nullptr;
-    int fileID;
+    int fileID, headerIndex;
     int currentPage, currentSlot;
 };
 

@@ -9,11 +9,11 @@ UnfixedRecordFile::UnfixedRecordFile(string filename){
     }
 
     this->bpm = make_shared<BufPageManager>(fm);
-    int index;
-    this->header = (UnfixedRecordFileHeader*)this->bpm->getPage(this->fileID, 0, index);
+    this->header = (UnfixedRecordFileHeader*)this->bpm->getPage(this->fileID, 0, this->headerIndex);
     if (this->header->isValid == 0){
         this->header->isValid = 1;
         this->header->pageNum = 1;
+        this->bpm->markDirty(this->headerIndex);
     }
 }
 
@@ -50,6 +50,10 @@ RID UnfixedRecordFile::insertData(data_ptr dat){
 
     this->bpm->markDirty(this->currentPage);
     this->currentSlot = slotNum-1;
+    if (this->header->pageNum < this->currentPage){
+        this->bpm->markDirty(this->headerIndex);
+        this->header->pageNum = this->currentPage;
+    }
     return RID(this->currentPage, this->currentSlot);
 }
 
@@ -99,4 +103,48 @@ RID UnfixedRecordFile::updateData(RID target, data_ptr dat){
 
 RID UnfixedRecordFile::getCurrentRID(){
     return RID(this->currentPage, this->currentSlot);
+}
+
+data_ptr UnfixedRecordFile::firstData(){
+    if (this->bpm == nullptr) return nullptr;
+    this->currentPage = 1;
+    this->currentSlot = 0;
+    data_ptr res = getData(RID(this->currentPage, this->currentSlot));
+    if (res != nullptr){
+        return res;
+    }
+    return nextData();
+}
+
+data_ptr UnfixedRecordFile::nextData(){
+    if (this->currentPage > this->header->pageNum){
+        return nullptr;
+    }
+    this->currentSlot++;
+    int index;
+    unsigned char *page = (unsigned char*)(this->bpm->getPage(this->fileID, this->currentPage, index));
+    int slotNum;
+    slotNum = *(int*)(page+PAGE_SIZE-8);
+    while (this->currentPage <= this->header->pageNum){
+        while (this->currentSlot >= slotNum){
+            this->currentPage++;
+            this->currentSlot = 0;
+            slotNum = *(int*)(page+PAGE_SIZE-8);
+            if (this->currentPage > this->header->pageNum){
+                return nullptr;
+            }
+        }
+        data_ptr res = getData(RID(this->currentPage, this->currentSlot));
+        if (res != nullptr){
+            return res;
+        }
+        this->currentSlot++;
+    }
+
+    return nullptr;
+}
+
+void UnfixedRecordFile::closeFile(){
+    assert(this->bpm != nullptr);
+    this->bpm->close();
 }
