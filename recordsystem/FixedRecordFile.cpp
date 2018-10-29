@@ -157,6 +157,11 @@ void FixedRecordFile::closeFile(){
     this->bpm = nullptr;
 }
 
+void FixedRecordFile::setRecordLength(int len){
+    this->header->recordLength = len;
+    calculateRecordPerPage();
+}
+
 void FixedRecordFile::calculateRecordPerPage(){
     assert(this->header != nullptr);
     assert(this->header->recordLength != 0);

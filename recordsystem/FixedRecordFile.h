@@ -44,6 +44,7 @@ public:
     data_ptr nextData();
 
     void closeFile();
+    void setRecordLength(int len);
     void calculateRecordPerPage();
 
     shared_ptr<BufPageManager> bpm = nullptr;

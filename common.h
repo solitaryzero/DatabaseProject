@@ -21,6 +21,7 @@ class DataContainer{
 public:
     static data_ptr genDataContainer(int size){
         data_ptr res = make_shared<vector<unsigned char>>(size);
+        memset(res->data(), 0, size);
         return res;
     }
 };
