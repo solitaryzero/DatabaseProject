@@ -4,18 +4,31 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
 #include <cassert>
 #include <vector>
+#include <map>
 #include <string>
 #include <memory>
 #include <memory.h>
 #include "./filesystem/bufmanager/BufPageManager.h"
 #include "./filesystem/fileio/FileManager.h"
+#include "./json11/json11.hpp"
 
 using namespace std;
+using namespace json11;
 
 #define TABLENAMELENGTH 256
 typedef shared_ptr<vector<unsigned char>> data_ptr;
+
+enum class varTypes {
+    INT_TYPE,
+    FLOAT_TYPE,
+    CHAR_TYPE,
+    VARCHAR_TYPE,
+    DATE_TYPE,
+    DECIMAL_TYPE
+};
 
 class DataContainer{
 public:

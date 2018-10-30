@@ -1,3 +1,6 @@
+#ifndef RECORDCONVERTER_H
+#define RECORDCONVERTER_H
+
 #include "../common.h"
 #include "TableInfo.h"
 
@@ -11,3 +14,5 @@ public:
     shared_ptr<TableInfo> tinfo = nullptr;
     vector<data_ptr> values;
 };
+
+#endif
