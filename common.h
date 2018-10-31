@@ -37,6 +37,39 @@ public:
         memset(res->data(), 0, size);
         return res;
     }
+
+    static void concat(data_ptr a, data_ptr b){
+        int sizea = a->size();
+        int sizeb = b->size();
+        a->resize(sizea+sizeb);
+        memcpy(a->data()+sizea, b->data(), sizeb);
+    }
+
+    static data_ptr genIntData(int v){
+        data_ptr res = genDataContainer(sizeof(int));
+        *(int*)(res->data()) = v;
+        return res;
+    }
+
+    static data_ptr genFloatData(float v){
+        data_ptr res = genDataContainer(sizeof(float));
+        *(float*)(res->data()) = v;
+        return res;
+    }
+
+    static data_ptr genShortData(short v){
+        data_ptr res = genDataContainer(sizeof(short));
+        *(short*)(res->data()) = v;
+        return res;
+    }
+
+    static data_ptr genStringData(string s){
+        data_ptr res = genDataContainer(s.length());
+        for (unsigned int i=0;i<s.length();i++){
+            res->data()[i] = (unsigned char)s[i];
+        }
+        return res;
+    }
 };
 
 #endif

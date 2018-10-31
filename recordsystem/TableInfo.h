@@ -3,8 +3,10 @@
 
 #include "../common.h"
 #include "ColumnInfo.h"
+#include "RecordConverter.h"
 
 class ColumnInfo;
+class RecordConverter;
 
 class TableInfo{
 public:
@@ -14,6 +16,7 @@ public:
     void addNewColumn(string colName, varTypes colType, int siz);
     string infoToString();
     void writeBack();
+    void genConverter();
 
     string tableName, infoFileName;
     int colNumbers, fixedColNumbers, unfixedColNumbers;
@@ -21,6 +24,7 @@ public:
     map<string, int> colIndex;
     map<string, shared_ptr<ColumnInfo>> colInfoMapping;
     fstream fs = fstream();
+    shared_ptr<RecordConverter> cvt;
 };
 
 #endif

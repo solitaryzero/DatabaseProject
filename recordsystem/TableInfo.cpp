@@ -61,3 +61,7 @@ void TableInfo::writeBack(){
     }
     this->fs.close();
 }
+
+void TableInfo::genConverter(){
+    this->cvt = make_shared<RecordConverter>(this);
+}
