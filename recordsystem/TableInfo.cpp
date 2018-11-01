@@ -41,6 +41,12 @@ void TableInfo::addNewColumn(string colName, varTypes colType, int siz){
     this->colInfos.push_back(c);
     this->colIndex.insert({colName, this->colInfos.size()-1});
     this->colInfoMapping.insert({colName, c});
+    if (colType == varTypes::VARCHAR_TYPE){
+        this->unfixedColNumbers++;
+    } else {
+        this->fixedColNumbers++;
+    }
+    this->colNumbers++;
 }
 
 string TableInfo::infoToString(){
@@ -64,4 +70,33 @@ void TableInfo::writeBack(){
 
 void TableInfo::genConverter(){
     this->cvt = make_shared<RecordConverter>(this);
+}
+
+int TableInfo::getFixedLength(){
+    int sum = 0;
+    for (int i=0;i<colNumbers;i++){
+        if (this->colInfos[i]->isFixed){
+            sum += this->colInfos[i]->size;
+        }
+    }
+    return sum;
+}
+
+int TableInfo::getFixedRecordLength(){
+    if (this->unfixedColNumbers != 0){
+        return -1;
+    }
+    int sum = getFixedLength();
+    return sum+4+2+2+((this->fixedColNumbers+7)/8);
+}
+
+void TableInfo::showTableInfo(){
+    //cout << "=============\n";
+    cout << "Table name: " << this->tableName << "\n";
+    cout << this->colNumbers << " columns in total:\n";
+    cout << "Name\t\tType\t\tSize\n";
+    for (int i=0;i<this->colNumbers;i++){
+        cout << this->colInfos[i]->columnName << "\t\t" << this->colInfos[i]->columnTypeName << "\t\t" << this->colInfos[i]->size << "\n";
+    }
+    //cout << "=============\n";
 }

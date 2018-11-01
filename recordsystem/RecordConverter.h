@@ -15,6 +15,8 @@ public:
     void fromNameValueMap(map<string, data_ptr> vmap);
     void fromIndexValueMap(map<int, data_ptr> vmap);
 
+    void showValues();
+
     data_ptr getRawData(string colName);
     data_ptr getRawData(int colIndex);
     void setRawData(string colName, data_ptr dat);

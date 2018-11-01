@@ -17,6 +17,9 @@ public:
     string infoToString();
     void writeBack();
     void genConverter();
+    int getFixedLength();
+    int getFixedRecordLength();
+    void showTableInfo();
 
     string tableName, infoFileName;
     int colNumbers, fixedColNumbers, unfixedColNumbers;

@@ -39,6 +39,9 @@ data_ptr RecordConverter::toByteArray(){
             }
         }
     }
+    
+    //printf("current offset when generating: %d\n", res->size());
+
     data_ptr fcoln = DataContainer::genShortData((short)this->tinfo->fixedColNumbers);
     DataContainer::concat(res, fcoln);
     int bitmapSize = (this->tinfo->colNumbers+7)/8;
@@ -48,6 +51,7 @@ data_ptr RecordConverter::toByteArray(){
             bitmap->data()[i/8] |= (1 << (7-(i%8))); 
         }
     }
+    DataContainer::concat(res, bitmap);
     data_ptr ufcoln = DataContainer::genShortData((short)this->tinfo->unfixedColNumbers);
     DataContainer::concat(res, ufcoln);
     int unfixedOffset = 0;
@@ -78,8 +82,12 @@ void RecordConverter::fromNameValueMap(map<string, data_ptr> vmap){
     }
 
     for (auto it=vmap.begin();it!=vmap.end();it++){
+        assert(this->tinfo->colInfoMapping[it->first] != nullptr);
         if (this->tinfo->colInfoMapping[it->first]->columnType == varTypes::CHAR_TYPE){
             this->values[this->tinfo->colIndex[it->first]] = it->second;
+            if (it->second == nullptr) {
+                continue;
+            }
             this->values[this->tinfo->colIndex[it->first]]->resize(this->tinfo->colInfoMapping[it->first]->size, ' ');
         } else {
             this->values[this->tinfo->colIndex[it->first]] = it->second;
@@ -93,13 +101,23 @@ void RecordConverter::fromIndexValueMap(map<int, data_ptr> vmap){
     }
 
     for (auto it=vmap.begin();it!=vmap.end();it++){
-        this->values[it->first] = it->second;
+        if (this->tinfo->colInfos[it->first]->columnType == varTypes::CHAR_TYPE){
+            this->values[it->first] = it->second;
+            if (it->second == nullptr) {
+                continue;
+            }
+            this->values[it->first]->resize(this->tinfo->colInfos[it->first]->size, ' ');
+        } else {
+            this->values[it->first] = it->second;
+        }
     }
 }
 
 void RecordConverter::fromByteArray(data_ptr dat){
     int offset = 2;
     short flen = *((short*)(dat->data()+offset));
+    //printf("flen: %d\nfixedColSize: %d\n", (int)flen, this->tinfo->getFixedLength());
+    assert((int)(flen) == this->tinfo->getFixedLength());
     offset += 2;
     for (unsigned int i=0;i<this->values.size();i++){
         if (this->tinfo->colInfos[i]->isFixed){
@@ -112,8 +130,10 @@ void RecordConverter::fromByteArray(data_ptr dat){
     }
     assert(offset == (int)(flen+4));
 
+    //printf("current offset when recovering: %d\n", offset);
     short fcoln = *((short*)(dat->data()+offset));
     offset += 2;
+    //printf("fcoln: %d\nfixedColNumbers: %d\n", (int)fcoln, this->tinfo->fixedColNumbers);
     assert((int)(fcoln) == this->tinfo->fixedColNumbers);
 
     int bitmapSize = (this->tinfo->colNumbers+7)/8;
@@ -122,6 +142,7 @@ void RecordConverter::fromByteArray(data_ptr dat){
     
     short ufcoln = *((short*)(dat->data()+offset));
     offset += 2;
+    //printf("ufcoln: %d\nunfixedColNumbers: %d\n", (int)ufcoln, this->tinfo->unfixedColNumbers);
     assert((int)(ufcoln) == this->tinfo->unfixedColNumbers);
 
     int unfixedDataBase = offset + 2*this->tinfo->unfixedColNumbers;
@@ -257,4 +278,32 @@ bool RecordConverter::isNull(string colName){
 
 bool RecordConverter::isNull(int colIndex){
     return (this->values[colIndex] == nullptr);
+}
+
+void RecordConverter::showValues(){
+    for (unsigned int i=0;i<this->values.size();i++){
+        cout << this->tinfo->colInfos[i]->columnName << "\t";
+        if (this->values[i] == nullptr){
+            cout << "null\n";
+            continue;
+        }
+
+        switch(this->tinfo->colInfos[i]->columnType){
+            case varTypes::INT_TYPE:
+                cout << this->getInt(i) << "\n";
+                break;
+            case varTypes::FLOAT_TYPE:
+                cout << this->getFloat(i) << "\n";
+                break;
+            case varTypes::CHAR_TYPE:
+                cout << "\"" << this->getChar(i) << "\"\n";
+                break;
+            case varTypes::VARCHAR_TYPE:
+                cout << "\"" << this->getChar(i, true) << "\"\n";
+                break;
+            default:
+                cout << "unhandled data type\n";
+                break;
+        }
+    }
 }

@@ -11,6 +11,7 @@
 #include <string>
 #include <memory>
 #include <memory.h>
+#include <utility>
 #include "./filesystem/bufmanager/BufPageManager.h"
 #include "./filesystem/fileio/FileManager.h"
 #include "./json11/json11.hpp"
