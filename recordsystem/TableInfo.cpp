@@ -66,6 +66,9 @@ void TableInfo::writeBack(){
         this->fs << this->colInfos[i]->toJsonDump() << "\n";
     }
     this->fs.close();
+    if (this->dataFile != nullptr){
+        this->dataFile->closeFile();
+    }
 }
 
 void TableInfo::genConverter(){
@@ -99,4 +102,16 @@ void TableInfo::showTableInfo(){
         cout << this->colInfos[i]->columnName << "\t\t" << this->colInfos[i]->columnTypeName << "\t\t" << this->colInfos[i]->size << "\n";
     }
     //cout << "=============\n";
+}
+
+void TableInfo::openDataFile(){
+    string dataFileName = this->tableName+".tbdata";
+    if (this->unfixedColNumbers == 0){
+        shared_ptr<FixedRecordFile> p = make_shared<FixedRecordFile>(dataFileName);
+        p->setRecordLength(this->getFixedRecordLength());
+        this->dataFile = p;
+    } else {
+        this->dataFile = make_shared<UnfixedRecordFile>(dataFileName);
+    }
+    this->genConverter();
 }

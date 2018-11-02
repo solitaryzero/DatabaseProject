@@ -3,6 +3,7 @@
 
 #include "../common.h"
 #include "RID.h"
+#include "AbstractRecordFile.h"
 
 /*
 Fixed record file format:
@@ -29,7 +30,7 @@ struct FixedRecordPageHeader{
     int usedSlot;
 };
 
-class FixedRecordFile{
+class FixedRecordFile : public AbstractRecordFile{
 public:
     FixedRecordFile(string filename);
     ~FixedRecordFile();

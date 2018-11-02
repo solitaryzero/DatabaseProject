@@ -4,6 +4,9 @@
 #include "../common.h"
 #include "ColumnInfo.h"
 #include "RecordConverter.h"
+#include "AbstractRecordFile.h"
+#include "FixedRecordFile.h"
+#include "UnfixedRecordFile.h"
 
 class ColumnInfo;
 class RecordConverter;
@@ -20,6 +23,7 @@ public:
     int getFixedLength();
     int getFixedRecordLength();
     void showTableInfo();
+    void openDataFile();
 
     string tableName, infoFileName;
     int colNumbers, fixedColNumbers, unfixedColNumbers;
@@ -28,6 +32,7 @@ public:
     map<string, shared_ptr<ColumnInfo>> colInfoMapping;
     fstream fs = fstream();
     shared_ptr<RecordConverter> cvt;
+    shared_ptr<AbstractRecordFile> dataFile = nullptr;
 };
 
 #endif

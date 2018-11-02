@@ -4,25 +4,21 @@
 #include "../common.h"
 #include "ColumnInfo.h"
 #include "DataOperands.h"
-#include "FixedRecordFile.h"
-#include "UnfixedRecordFile.h"
 #include "RecordConverter.h"
 #include "RID.h"
 #include "TableInfo.h"
 
 class RecordManager{
 public:
-    void newTable(string tableName);
-    void newTable(string tableName, vector<pair<string, varTypes>> cols, vector<int> sizes);
-    void openTable(string tableName);
-    void dropTable(string tableName);
-    void openDataFile();
+    RecordManager();
 
-    bool isFixed = false;
-    shared_ptr<TableInfo> tinfo = nullptr;
-    shared_ptr<FixedRecordFile> fixedFile = nullptr;
-    shared_ptr<UnfixedRecordFile> unfixedFile = nullptr;
-    string infoFileName, dataFileName;
+    shared_ptr<TableInfo> newTable(string tableName);
+    shared_ptr<TableInfo> newTable(string tableName, vector<pair<string, varTypes>> cols, vector<int> sizes);
+    shared_ptr<TableInfo> openTable(string tableName);
+    void dropTable(string tableName);
+    void openDataFile(shared_ptr<TableInfo> p);
+
+    map<string, shared_ptr<TableInfo>> tablePool;
 };
 
 #endif

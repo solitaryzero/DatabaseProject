@@ -3,6 +3,7 @@
 
 #include "../common.h"
 #include "RID.h"
+#include "AbstractRecordFile.h"
 
 /*
 Unfixed record file format:
@@ -25,7 +26,7 @@ struct UnfixedRecordFileHeader{
     char tableName[TABLENAMELENGTH];
 };
 
-class UnfixedRecordFile{
+class UnfixedRecordFile : public AbstractRecordFile{
 public:
     UnfixedRecordFile(string filename);
     ~UnfixedRecordFile();
