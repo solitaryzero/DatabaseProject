@@ -4,7 +4,7 @@ add_compile_options(--std=c++14 -Wall -g -O3)
 
 add_subdirectory(json11)
 
-set(MODULES filesystem recordsystem)
+set(MODULES filesystem recordsystem indexsystem)
 set(NOEMPTY_MODULES "")
 foreach(M ${MODULES})
     file(GLOB_RECURSE SOURCES ${M}/*.cpp)

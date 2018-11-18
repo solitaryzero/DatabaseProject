@@ -4,7 +4,9 @@
 class RID{
 public:
     RID();
+    RID(int raw);
     RID(int p, int s);
+    int toInt();
     int pagenum;
     int slotnum;
 
