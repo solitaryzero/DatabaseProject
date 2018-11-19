@@ -20,6 +20,10 @@ using namespace std;
 using namespace json11;
 
 #define TABLENAMELENGTH 256
+
+#define MAXINDEXRECPERPAGE 680
+#define MAXRECPEROVERFLOWPAGE 2000
+
 typedef shared_ptr<vector<unsigned char>> data_ptr;
 
 enum class varTypes {
