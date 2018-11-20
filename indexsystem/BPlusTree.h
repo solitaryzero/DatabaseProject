@@ -5,42 +5,7 @@
 #include "../recordsystem/RID.h"
 #include "../recordsystem/UnfixedRecordFile.h"
 #include "BPlusTreeFile.h"
-
-enum NodeType {UNDEFINED = 0, INTERMEDIATE = 1, LEAF = 2, OVERFLOW = 3};
-
-struct IndexRecord{
-    int keyPos;
-    int value;  
-    //for leaf page: negative -> -overflowpage id; positive -> RID
-    //for intermediate page: pointer left to this page
-    int count;
-};
-
-struct BPlusNode{
-    NodeType nodeType;
-    int pageId;
-    int recCount;
-    int prevPage;
-    int nextPage;   //-1 for nonexistent
-    IndexRecord data[MAXINDEXRECPERPAGE];
-};
-
-struct BPlusOverflowPage{
-    NodeType nodeType;
-    int pageId;
-    int recCount;
-    int prevPage;
-    int nextPage;
-    int fatherPage;
-    int data[MAXRECPEROVERFLOWPAGE];
-};
-
-struct BPlusHeaderPage{
-    int rootPageId;
-    int firstLeaf;
-    int lastLeaf;
-    int sum;
-};
+#include "BPlusStructures.h"
 
 class BPlusTree{
 public:
@@ -53,8 +18,6 @@ public:
     int greaterCount(data_ptr key);
 
 private:
-    int maxPage;
-    int rootPageId, firstLeaf, lastLeaf;
     BPlusNode* currentNode;
     BPlusHeaderPage* header;
     string tableName, colName;

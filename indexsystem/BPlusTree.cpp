@@ -3,6 +3,8 @@
 BPlusTree::BPlusTree(string tableName, string colName){
     this->tableName = tableName;
     this->colName = colName;
+    this->treeFile = make_shared<BPlusTreeFile>(this->tableName+"."+this->colName+".tree");
+    this->keyFile = make_shared<UnfixedRecordFile>(this->tableName+"."+this->colName+".key");
 }
 
 void BPlusTree::insert(data_ptr key, int rid){
