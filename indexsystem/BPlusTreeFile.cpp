@@ -17,20 +17,61 @@ BPlusTreeFile::BPlusTreeFile(string fileName){
         this->header->lastLeaf = 1;
         this->header->sum = 0;
         this->bpm->markDirty(this->headerIndex);
+
+        int index;
+        BPlusNode* root = (BPlusNode*)getPage(1, index);
+        root->nextPage = 0;
+        root->prevPage = 0;
+        root->nodeType = NodeType::LEAF;
+        root->pageId = 1;
+        root->recCount = 0;
+        this->markPageDirty(index);
     }
 }
 
-unsigned char* BPlusTreeFile::newPage(){
+BPlusTreeFile::~BPlusTreeFile(){
+    this->closeFile();
+}
+
+unsigned char* BPlusTreeFile::newPage(int &index){
     this->header->pageCount++;
+    unsigned char* res = (unsigned char*)this->bpm->getPage(this->fileID, this->header->pageCount, index);
+    ((BPlusNode*)res)->pageId = this->header->pageCount;
+    this->markPageDirty(index);
+    return res;
+}
+
+unsigned char* BPlusTreeFile::newPage(){
     int index;
-    return (unsigned char*)this->bpm->getPage(this->fileID, this->header->pageCount, index);
+    this->header->pageCount++;
+    unsigned char* res = (unsigned char*)this->bpm->getPage(this->fileID, this->header->pageCount, index);
+    ((BPlusNode*)res)->pageId = this->header->pageCount;
+    this->markPageDirty(index);
+    return res;
+}
+
+unsigned char* BPlusTreeFile::getPage(int pageID, int &index){
+    assert(pageID <= this->header->pageCount);
+    return (unsigned char*)this->bpm->getPage(this->fileID, pageID, index);
 }
 
 unsigned char* BPlusTreeFile::getPage(int pageID){
+    assert(pageID <= this->header->pageCount);
     int index;
     return (unsigned char*)this->bpm->getPage(this->fileID, pageID, index);
 }
 
-void BPlusTreeFile::markDirty(int pageID){
-    this->bpm->markDirty(pageID);
+void BPlusTreeFile::markHeaderPageDirty(){
+    this->bpm->markDirty(this->headerIndex);
+}
+
+void BPlusTreeFile::markPageDirty(int index){
+    this->bpm->markDirty(index);
+}
+
+void BPlusTreeFile::closeFile(){
+    if (this->bpm != nullptr){
+        this->bpm->close();
+        this->bpm = nullptr;
+    }
 }

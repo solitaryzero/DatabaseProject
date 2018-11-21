@@ -10,6 +10,7 @@
 class BPlusTree{
 public:
     BPlusTree(string tableName, string colName);
+    ~BPlusTree();
 
     void insert(data_ptr key, int rid);
     void remove(data_ptr key, int rid);
@@ -17,13 +18,16 @@ public:
     int count(data_ptr key);
     int greaterCount(data_ptr key);
 
-private:
     BPlusNode* currentNode;
     BPlusHeaderPage* header;
     string tableName, colName;
 
     shared_ptr<BPlusTreeFile> treeFile = nullptr;
     shared_ptr<UnfixedRecordFile> keyFile = nullptr;
+
+    void closeIndex();
+    void deleteIndex();
+    void insertIntoNonFullPage(data_ptr key, int rid, int pageID); 
 };
 
 class BPlusTreeIterator{
@@ -37,13 +41,14 @@ public:
     void nextKey();
     void previous();
     void previousKey();
-    bool hasNext();
+    bool available();
     void setToBegin();
 
 private:
     BPlusTree* tree;
     BPlusNode* currentNode;
-    int currentKeyPos, currentValuePos;
+    BPlusOverflowPage* currentOverflowPage;
+    int currentKeyPos, currentValuePos, currentCumulation;
 };
 
 #endif

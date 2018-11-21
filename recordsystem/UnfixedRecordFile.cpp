@@ -48,7 +48,7 @@ RID UnfixedRecordFile::insertData(data_ptr dat){
     *(int*)(page+PAGE_SIZE-4) = lastFreeOffset;
     *(int*)(page+PAGE_SIZE-8) = slotNum;
 
-    this->bpm->markDirty(this->currentPage);
+    this->bpm->markDirty(index);
     this->currentSlot = slotNum-1;
     if (this->header->pageNum < this->currentPage){
         this->bpm->markDirty(this->headerIndex);
@@ -70,7 +70,7 @@ bool UnfixedRecordFile::deleteData(RID target){
     *(int*)(page+PAGE_SIZE-8-8*sn-8) = -1;
     this->currentPage = pn;
     this->currentSlot = sn;
-    this->bpm->markDirty(this->currentPage);
+    this->bpm->markDirty(index);
     return true;
 }
 
