@@ -4,12 +4,13 @@
 #include "../common.h"
 #include "../recordsystem/RID.h"
 #include "../recordsystem/UnfixedRecordFile.h"
+#include "../recordsystem/DataOperands.h"
 #include "BPlusTreeFile.h"
 #include "BPlusStructures.h"
 
 class BPlusTree{
 public:
-    BPlusTree(string tableName, string colName);
+    BPlusTree(string tableName, string colName, varTypes type);
     ~BPlusTree();
 
     void insert(data_ptr key, int rid);
@@ -21,13 +22,17 @@ public:
     BPlusNode* currentNode;
     BPlusHeaderPage* header;
     string tableName, colName;
+    varTypes type;
 
     shared_ptr<BPlusTreeFile> treeFile = nullptr;
     shared_ptr<UnfixedRecordFile> keyFile = nullptr;
 
     void closeIndex();
     void deleteIndex();
+
     void insertIntoNonFullPage(data_ptr key, int rid, int pageID); 
+    void splitChildPageOn(BPlusNode* node, int index); 
+    void insertIntoOverflowPage(data_ptr key, int rid, BPlusNode* fatherPage, int x);
 };
 
 class BPlusTreeIterator{
