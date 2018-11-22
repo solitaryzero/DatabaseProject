@@ -38,6 +38,7 @@ unsigned char* BPlusTreeFile::newPage(int &index){
     unsigned char* res = (unsigned char*)this->bpm->getPage(this->fileID, this->header->pageCount, index);
     ((BPlusNode*)res)->pageId = this->header->pageCount;
     this->markPageDirty(index);
+    this->markHeaderPageDirty();
     return res;
 }
 
@@ -47,6 +48,7 @@ unsigned char* BPlusTreeFile::newPage(){
     unsigned char* res = (unsigned char*)this->bpm->getPage(this->fileID, this->header->pageCount, index);
     ((BPlusNode*)res)->pageId = this->header->pageCount;
     this->markPageDirty(index);
+    this->markHeaderPageDirty();
     return res;
 }
 

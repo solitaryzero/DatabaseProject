@@ -8,6 +8,8 @@
 #include "BPlusTreeFile.h"
 #include "BPlusStructures.h"
 
+class BPlusTreeIterator;
+
 class BPlusTree{
 public:
     BPlusTree(string tableName, string colName, varTypes type);
@@ -17,10 +19,13 @@ public:
     void remove(data_ptr key, int rid);
     bool has(data_ptr key);
     int count(data_ptr key);
+    int lesserCount(data_ptr key);
     int greaterCount(data_ptr key);
+    BPlusTreeIterator lowerBound(data_ptr key);
+    BPlusTreeIterator upperBound(data_ptr key);
+    vector<RID> getRIDs(data_ptr key);
+    int totalCount();
 
-    BPlusNode* currentNode;
-    BPlusHeaderPage* header;
     string tableName, colName;
     varTypes type;
 
@@ -33,6 +38,17 @@ public:
     void insertIntoNonFullPage(data_ptr key, int rid, int pageID); 
     void splitChildPageOn(BPlusNode* node, int index); 
     void insertIntoOverflowPage(data_ptr key, int rid, BPlusNode* fatherPage, int x);
+
+    void deleteFromLegalPage(data_ptr key, int rid, int pageID);
+    void mergeChildPageOn(BPlusNode* node, int index);  //合并node上index和index+1号节点
+    void borrowFromBackward(BPlusNode* node, int index);
+    void borrowFromForward(BPlusNode* node, int index);
+    void deleteFromOverflowPage(data_ptr key, int rid, BPlusNode* fatherPage, int x);
+
+    int getCountIn(int pageID, data_ptr key);
+    int getLesserCountIn(int pageID, data_ptr key);
+    int getGreaterCountIn(int pageID, data_ptr key);
+    BPlusTreeIterator getLowerBound(int pageID, data_ptr key);
 };
 
 class BPlusTreeIterator{
@@ -48,8 +64,8 @@ public:
     void previousKey();
     bool available();
     void setToBegin();
+    bool equals(const BPlusTreeIterator &other);
 
-private:
     BPlusTree* tree;
     BPlusNode* currentNode;
     BPlusOverflowPage* currentOverflowPage;

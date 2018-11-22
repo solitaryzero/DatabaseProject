@@ -12,6 +12,10 @@ BPlusTree::~BPlusTree(){
     this->closeIndex();
 }
 
+/*
+====== below are interfaces ======
+*/
+
 void BPlusTree::insert(data_ptr key, int rid){
     int rootIndex;
     BPlusNode* root = (BPlusNode*)this->treeFile->getPage(this->treeFile->header->rootPageId, rootIndex);
@@ -52,6 +56,9 @@ void BPlusTree::insert(data_ptr key, int rid){
             for (int i=0;i<newNode->recCount;i++){
                 newRoot->data[1].count += newNode->data[i].count;
             }
+
+            this->treeFile->header->lastLeaf = newNode->pageId;
+
             this->insertIntoNonFullPage(key, rid, newRoot->pageId);
 
         } else if (root->nodeType == NodeType::INTERMEDIATE) {
@@ -94,23 +101,81 @@ void BPlusTree::insert(data_ptr key, int rid){
     } else {
         insertIntoNonFullPage(key, rid, this->treeFile->header->rootPageId);
     }
+
+    this->treeFile->header->sum++;
+    this->treeFile->markHeaderPageDirty();
 }
 
 void BPlusTree::remove(data_ptr key, int rid){
-    
+    int rootIndex;
+    BPlusNode* root = (BPlusNode*)this->treeFile->getPage(this->treeFile->header->rootPageId, rootIndex);
+    if ((root->nodeType == NodeType::INTERMEDIATE) && (root->recCount == 2)){
+        BPlusNode* child0 = (BPlusNode*)this->treeFile->getPage(root->data[0].value);
+        BPlusNode* child1 = (BPlusNode*)this->treeFile->getPage(root->data[1].value);
+        if ((child0->recCount == MAXINDEXRECPERPAGE/2) && (child1->recCount == MAXINDEXRECPERPAGE/2)){
+            //merge page and drop empty root
+            this->mergeChildPageOn(root, 0);
+            assert(root->data[0].value == child0->pageId);
+            this->treeFile->header->rootPageId = root->data[0].value;
+        }
+    }
+
+    this->deleteFromLegalPage(key, rid, this->treeFile->header->rootPageId);
+    this->treeFile->markPageDirty(rootIndex);
+    this->treeFile->header->sum--;
+    this->treeFile->markHeaderPageDirty();
 }
 
 bool BPlusTree::has(data_ptr key){
-    return false;
+    return (this->count(key) > 0);
 }
 
 int BPlusTree::count(data_ptr key){
+    return this->getCountIn(this->treeFile->header->rootPageId, key);
+}
+
+int BPlusTree::lesserCount(data_ptr key){
     return 0;
 }
 
 int BPlusTree::greaterCount(data_ptr key){
     return 0;
 }
+
+BPlusTreeIterator BPlusTree::lowerBound(data_ptr key){
+    return this->getLowerBound(this->treeFile->header->rootPageId, key);
+}
+
+BPlusTreeIterator BPlusTree::upperBound(data_ptr key){
+    BPlusTreeIterator it = this->getLowerBound(this->treeFile->header->rootPageId, key);
+    if (it.available()){
+        it.nextKey();
+    }
+    return it;
+}
+
+vector<RID> BPlusTree::getRIDs(data_ptr key){
+    BPlusTreeIterator lower = this->lowerBound(key);
+    BPlusTreeIterator upper = this->upperBound(key);
+    vector<RID> res;
+    if (lower.available()){
+        assert(DataOperands::compare(this->type, key, lower.getKey()) == 0);
+    }
+
+    while (lower.available() && (!lower.equals(upper))){
+        res.push_back(RID(lower.getValue()));
+        lower.next();
+    }
+    return res;
+}
+
+int BPlusTree::totalCount(){
+    return this->treeFile->header->sum;
+}
+
+/*
+====== below are file operations ======
+*/
 
 void BPlusTree::closeIndex(){
     if (this->treeFile != nullptr){
@@ -132,17 +197,21 @@ void BPlusTree::deleteIndex(){
     unlink(keyName.c_str());
 }
 
+/*
+====== below are internal functions ======
+*/
+
 void BPlusTree::insertIntoNonFullPage(data_ptr key, int rid, int pageID){
     int pageIndex;
     BPlusNode* node = (BPlusNode*)(this->treeFile->getPage(pageID, pageIndex));
     if (node->nodeType == NodeType::LEAF){
         int p = 0;
-        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) >= 0)){
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(RID(node->data[p].keyPos))) >= 0)){
             p++;
         }
         p--;
 
-        if ((p >= 0) && (p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) == 0)){
+        if ((p >= 0) && (p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(RID(node->data[p].keyPos))) == 0)){
             //duplicate key
             this->insertIntoOverflowPage(key, rid, node, p);
         } else {
@@ -160,7 +229,7 @@ void BPlusTree::insertIntoNonFullPage(data_ptr key, int rid, int pageID){
         }
     } else if (node->nodeType == NodeType::INTERMEDIATE){
         int p = 1;
-        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) >= 0)){
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(RID(node->data[p].keyPos))) >= 0)){
             p++;
         }
         p--;
@@ -168,7 +237,7 @@ void BPlusTree::insertIntoNonFullPage(data_ptr key, int rid, int pageID){
         BPlusNode* child = (BPlusNode*)this->treeFile->getPage(node->data[p].value);
         if (child->recCount == MAXINDEXRECPERPAGE){
             this->splitChildPageOn(node, p);
-            if (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p+1].keyPos)) >= 0){
+            if (DataOperands::compare(this->type, key, this->keyFile->getData(RID(node->data[p+1].keyPos))) >= 0){
                 p++;
             }
         }
@@ -188,6 +257,16 @@ void BPlusTree::splitChildPageOn(BPlusNode* node, int index){
 
     assert(child->recCount == MAXINDEXRECPERPAGE);
     if (child->nodeType == NodeType::LEAF){
+        //modify leaf page chain
+        if (child->nextPage > 0){
+            int nextIndex;
+            BPlusNode* next = (BPlusNode*)this->treeFile->getPage(child->nextPage, nextIndex);
+            newNode->nextPage = child->nextPage;
+            assert(next->prevPage == child->pageId);
+            next->prevPage = newNode->pageId;
+            this->treeFile->markPageDirty(nextIndex);
+        }
+
         child->nextPage = newNode->pageId;
         newNode->prevPage = child->pageId;
         child->recCount = MAXINDEXRECPERPAGE / 2;
@@ -218,6 +297,13 @@ void BPlusTree::splitChildPageOn(BPlusNode* node, int index){
         for (int i=0;i<newNode->recCount;i++){
             node->data[index+1].count += newNode->data[i].count;
         }
+
+        //update lastleaf
+        if (this->treeFile->header->lastLeaf == child->pageId){
+            this->treeFile->header->lastLeaf = newNode->pageId;
+            this->treeFile->markHeaderPageDirty();
+        }
+
     } else if (child->nodeType == NodeType::INTERMEDIATE){
         child->nextPage = 0;
         newNode->prevPage = 0;
@@ -308,6 +394,385 @@ void BPlusTree::insertIntoOverflowPage(data_ptr key, int rid, BPlusNode* fatherP
         assert(false);
     }
 }
+
+void BPlusTree::deleteFromLegalPage(data_ptr key, int rid, int pageID){
+    int pageIndex;
+    BPlusNode* node = (BPlusNode*)(this->treeFile->getPage(pageID, pageIndex));
+    if (node->nodeType == NodeType::LEAF){
+        int p = 0;
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(RID(node->data[p].keyPos))) >= 0)){
+            p++;
+        }
+        p--;
+
+        assert(p >= 0);
+        assert(DataOperands::compare(this->type, key, this->keyFile->getData(RID(node->data[p].keyPos))) == 0);
+        if (node->data[p].count > 1){
+            //duplicate key
+            this->deleteFromOverflowPage(key, rid, node, p);
+        } else {
+            //unique key
+            bool res = this->keyFile->deleteData(node->data[p].keyPos);
+            assert(res);
+            for (int i=p;i<node->recCount;i--){
+                node->data[i].count = node->data[i+1].count;
+                node->data[i].keyPos = node->data[i+1].keyPos;
+                node->data[i].value = node->data[i+1].value;
+            }
+            node->recCount--;
+        }
+    } else if (node->nodeType == NodeType::INTERMEDIATE){
+        int p = 1;
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(RID(node->data[p].keyPos))) >= 0)){
+            p++;
+        }
+        p--;
+
+        BPlusNode* child = (BPlusNode*)this->treeFile->getPage(node->data[p].value);
+        if (child->recCount <= MAXINDEXRECPERPAGE/2){
+            if (p > 0){
+                BPlusNode* prevChild = (BPlusNode*)this->treeFile->getPage(node->data[p-1].value);
+                assert(prevChild->nodeType == child->nodeType);
+                if (prevChild->recCount > MAXINDEXRECPERPAGE/2){
+                    this->borrowFromBackward(node, p);
+                } else {
+                    this->mergeChildPageOn(node, p-1);
+                }
+            } else {
+                BPlusNode* nextChild = (BPlusNode*)this->treeFile->getPage(node->data[p+1].value);
+                assert(nextChild->nodeType == child->nodeType);
+                if (nextChild->recCount > MAXINDEXRECPERPAGE/2){
+                    this->borrowFromForward(node, p);
+                } else {
+                    this->mergeChildPageOn(node, p);
+                }
+            }
+        }
+
+        this->deleteFromLegalPage(key, rid, node->data[p].value);
+        node->data[p].count--;
+
+        //try to update keypos
+        child = (BPlusNode*)this->treeFile->getPage(node->data[p].value);
+        if (child->nodeType == NodeType::INTERMEDIATE){
+            node->data[p].keyPos = child->data[1].keyPos;
+        } else if (child->nodeType == NodeType::LEAF){
+            node->data[p].keyPos = child->data[0].keyPos;
+        } else {
+            assert(false);
+        }
+
+    } else {
+        assert(false);
+    }
+    this->treeFile->markPageDirty(pageIndex);
+}
+
+void BPlusTree::mergeChildPageOn(BPlusNode* node, int index){
+    int nextIndex, childIndex;
+    BPlusNode* nextChild = (BPlusNode*)this->treeFile->getPage(node->data[index+1].value, nextIndex);
+    BPlusNode* child = (BPlusNode*)this->treeFile->getPage(node->data[index].value, childIndex);
+
+    assert(nextChild->nodeType == child->nodeType);
+    assert(nextChild->recCount + child->recCount <= MAXINDEXRECPERPAGE);
+
+    if (child->nodeType == NodeType::LEAF){
+        for (int i=0;i<nextChild->recCount;i++){
+            child->data[child->recCount+i].count = nextChild->data[i].count;
+            child->data[child->recCount+i].keyPos = nextChild->data[i].keyPos;
+            child->data[child->recCount+i].value = nextChild->data[i].value;
+        }
+        child->recCount += nextChild->recCount;
+
+        //modify leaf chain
+        child->nextPage = nextChild->nextPage;
+        if (nextChild->nextPage > 0){
+            int nnIndex;
+            BPlusNode* nnChild = (BPlusNode*)this->treeFile->getPage(nextChild->nextPage, nnIndex);
+            assert(nnChild->nodeType == NodeType::LEAF);
+            nnChild->prevPage = child->pageId;
+            this->treeFile->markPageDirty(nnIndex);
+        } else {
+            assert(this->treeFile->header->lastLeaf == nextChild->pageId);
+            this->treeFile->header->lastLeaf = child->pageId;
+            this->treeFile->markHeaderPageDirty();
+        }
+
+    } else if (child->nodeType == NodeType::INTERMEDIATE){
+        for (int i=1;i<nextChild->recCount;i++){
+            child->data[child->recCount+i-1].count = nextChild->data[i].count;
+            child->data[child->recCount+i-1].keyPos = nextChild->data[i].keyPos;
+            child->data[child->recCount+i-1].value = nextChild->data[i].value;
+        }
+        child->recCount += (nextChild->recCount - 1);
+    } else {
+        assert(false);
+    }
+
+    node->data[index].count += node->data[index+1].count;
+    for (int i=index+1;i<node->recCount;i++){
+        node->data[i].count = node->data[i+1].count;
+        node->data[i].keyPos = node->data[i+1].keyPos;
+        node->data[i].value = node->data[i+1].value;
+    }
+    node->recCount--;
+
+    this->treeFile->markPageDirty(nextIndex);
+    this->treeFile->markPageDirty(childIndex);
+}
+
+void BPlusTree::borrowFromBackward(BPlusNode* node, int index){
+    int prevIndex, childIndex;
+    BPlusNode* prevChild = (BPlusNode*)this->treeFile->getPage(node->data[index-1].value, prevIndex);
+    BPlusNode* child = (BPlusNode*)this->treeFile->getPage(node->data[index].value, childIndex);
+    assert(prevChild->nodeType == child->nodeType);
+
+    for (int i=child->recCount-1;i>=0;i++){
+        child->data[i+1].count = child->data[i].count;
+        child->data[i+1].keyPos = child->data[i].keyPos;
+        child->data[i+1].value = child->data[i].value;
+    }
+
+    if (child->nodeType == NodeType::LEAF){
+        child->data[0].count = prevChild->data[prevChild->recCount-1].count;
+        child->data[0].keyPos = prevChild->data[prevChild->recCount-1].keyPos;
+        child->data[0].value = prevChild->data[prevChild->recCount-1].value;
+        //update related data in father node
+        node->data[index].keyPos = child->data[0].keyPos;
+        node->data[index].count += child->data[0].count;
+        node->data[index-1].value -= child->data[0].count;
+
+    } else if (child->nodeType == NodeType::INTERMEDIATE){
+        child->data[1].count = prevChild->data[prevChild->recCount-1].count;
+        child->data[1].keyPos = prevChild->data[prevChild->recCount-1].keyPos;
+        child->data[1].value = prevChild->data[prevChild->recCount-1].value;
+        //actually useless
+        child->data[0].count = 0;
+        child->data[0].keyPos = 0;
+        child->data[0].value = prevChild->data[prevChild->recCount-2].value;
+        //update related data in father node
+        node->data[index].keyPos = child->data[1].keyPos;
+        node->data[index].count += child->data[1].count;
+        node->data[index-1].value -= child->data[1].count;
+
+    } else {
+        assert(false);
+    }
+
+    child->recCount++;
+    prevChild->recCount--;
+    this->treeFile->markPageDirty(prevIndex);
+    this->treeFile->markPageDirty(childIndex);
+}
+
+void BPlusTree::borrowFromForward(BPlusNode* node, int index){
+    int nextIndex, childIndex;
+    BPlusNode* nextChild = (BPlusNode*)this->treeFile->getPage(node->data[index+1].value, nextIndex);
+    BPlusNode* child = (BPlusNode*)this->treeFile->getPage(node->data[index].value, childIndex);
+    assert(nextChild->nodeType == child->nodeType);
+
+    if (child->nodeType == NodeType::LEAF){
+        child->data[child->recCount].count = nextChild->data[0].count;
+        child->data[child->recCount].keyPos = nextChild->data[0].keyPos;
+        child->data[child->recCount].value = nextChild->data[0].value;
+
+        for (int i=0;i<nextChild->recCount;i++){
+            nextChild->data[i].count = nextChild->data[i+1].count;
+            nextChild->data[i].keyPos = nextChild->data[i+1].keyPos;
+            nextChild->data[i].value = nextChild->data[i+1].value;
+        }
+
+        //update related data in father node
+        node->data[index+1].keyPos = nextChild->data[0].keyPos;
+        node->data[index+1].count -= child->data[child->recCount].count;
+        node->data[index].value += child->data[child->recCount].count;
+
+    } else if (child->nodeType == NodeType::INTERMEDIATE){
+        child->data[child->recCount].count = nextChild->data[1].count;
+        child->data[child->recCount].keyPos = nextChild->data[1].keyPos;
+        child->data[child->recCount].value = nextChild->data[1].value;
+
+        for (int i=0;i<nextChild->recCount;i++){
+            nextChild->data[i].count = nextChild->data[i+1].count;
+            nextChild->data[i].keyPos = nextChild->data[i+1].keyPos;
+            nextChild->data[i].value = nextChild->data[i+1].value;
+        }
+        nextChild->data[0].count = 0;
+        nextChild->data[0].keyPos = 0;
+
+        //update related data in father node
+        node->data[index+1].keyPos = nextChild->data[1].keyPos;
+        node->data[index+1].count -= child->data[child->recCount].count;
+        node->data[index].value += child->data[child->recCount].count;
+
+    } else {
+        assert(false);
+    }
+
+    child->recCount++;
+    nextChild->recCount--;
+    this->treeFile->markPageDirty(nextIndex);
+    this->treeFile->markPageDirty(childIndex);
+}
+
+void BPlusTree::deleteFromOverflowPage(data_ptr key, int rid, BPlusNode* fatherPage, int x){
+    assert(fatherPage->recCount > x);
+    int oldCount = fatherPage->data[x].count;
+    assert(oldCount > 1);
+
+    int overflowIndex;
+    BPlusOverflowPage* overflowPage = (BPlusOverflowPage*)this->treeFile->getPage(fatherPage->data[x].value, overflowIndex);
+    assert(overflowPage->nodeType == NodeType::OVERFLOW);
+    int pos = -1;
+    while (pos == -1){
+        for (int i=0;i<overflowPage->recCount;i++){
+            if (overflowPage->data[i] == rid){
+                pos = i;
+                break;
+            }
+        }
+        if (overflowPage->nextPage > 0){
+            overflowPage = (BPlusOverflowPage*)this->treeFile->getPage(overflowPage->nextPage, overflowIndex);
+        } else {
+            break;
+        }
+    }
+    assert(pos != -1);
+    for (int i=pos;i<overflowPage->recCount;i++){
+        overflowPage->data[i] = overflowPage->data[i+1];
+    }
+    overflowPage->recCount--;
+
+    if (overflowPage->recCount == 0){
+        if (overflowPage->prevPage > 0){
+            int prevIndex;
+            BPlusOverflowPage* prevPage = (BPlusOverflowPage*)this->treeFile->getPage(overflowPage->prevPage, prevIndex);
+            prevPage->nextPage = overflowPage->nextPage;
+            this->treeFile->markPageDirty(prevIndex);
+        }
+
+        if (overflowPage->nextPage > 0){
+            int nextIndex;
+            BPlusOverflowPage* nextPage = (BPlusOverflowPage*)this->treeFile->getPage(overflowPage->nextPage, nextIndex);
+            nextPage->prevPage = overflowPage->prevPage;
+            this->treeFile->markPageDirty(nextIndex);
+        }
+
+        if (fatherPage->data[x].value == overflowPage->pageId){
+            fatherPage->data[x].value = overflowPage->nextPage;
+        }
+    }
+
+    fatherPage->data[x].count--;
+    if (fatherPage->data[x].count == 1){
+        overflowPage = (BPlusOverflowPage*)this->treeFile->getPage(fatherPage->data[x].value);
+        assert(overflowPage->nodeType == NodeType::OVERFLOW);
+        assert(overflowPage->recCount == 1);
+        assert(overflowPage->prevPage == 0);
+        assert(overflowPage->nextPage == 0);
+        fatherPage->data[x].value = overflowPage->data[0];
+    }
+
+    this->treeFile->markPageDirty(overflowIndex);
+}
+
+int BPlusTree::getCountIn(int pageID, data_ptr key){
+    BPlusNode* node = (BPlusNode*)this->treeFile->getPage(pageID);
+    if (node->nodeType == NodeType::LEAF){
+        for (int i=0;i<node->recCount;i++){
+            if (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[i].keyPos)) == 0){
+                return node->data[i].count;
+            }
+        }
+        return -1;
+    } else if (node->nodeType == NodeType::INTERMEDIATE){
+        int p = 1;
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) >= 0)){
+            p++;
+        }
+        p--;
+        return this->getCountIn(node->data[p].value, key);
+    } else {
+        return -1;
+    }
+}
+
+int BPlusTree::getLesserCountIn(int pageID, data_ptr key){
+    BPlusNode* node = (BPlusNode*)this->treeFile->getPage(pageID);
+    int res = 0;
+    if (node->nodeType == NodeType::LEAF){
+        for (int i=0;i<node->recCount;i++){
+            if (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[i].keyPos)) <= 0){
+                return res;
+            }
+            res += node->data[i].count;
+        }
+        return res;
+    } else if (node->nodeType == NodeType::INTERMEDIATE){
+        int p = 1;
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) >= 0)){
+            p++;
+        }
+        p--;
+        for (int i=0;i<p;i++){
+            res += node->data[i].count;
+        }
+        return res+this->getLesserCountIn(node->data[p].value, key);
+    } else {
+        return -1;
+    }
+}
+
+int BPlusTree::getGreaterCountIn(int pageID, data_ptr key){
+    BPlusNode* node = (BPlusNode*)this->treeFile->getPage(pageID);
+    int res = 0;
+    if (node->nodeType == NodeType::LEAF){
+        for (int i=node->recCount-1;i>=0;i--){
+            if (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[i].keyPos)) >= 0){
+                return res;
+            }
+            res += node->data[i].count;
+        }
+        return res;
+    } else if (node->nodeType == NodeType::INTERMEDIATE){
+        int p = 1;
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) >= 0)){
+            p++;
+        }
+        p--;
+        for (int i=p+1;i<node->recCount;i++){
+            res += node->data[i].count;
+        }
+        return res+this->getGreaterCountIn(node->data[p].value, key);
+    } else {
+        return -1;
+    }
+}
+
+BPlusTreeIterator BPlusTree::getLowerBound(int pageID, data_ptr key){
+    BPlusNode* node = (BPlusNode*)this->treeFile->getPage(pageID);
+    if (node->nodeType == NodeType::LEAF){
+        for (int i=0;i<node->recCount;i++){
+            if (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[i].keyPos)) == 0){
+                return BPlusTreeIterator(this, node, i, 0);
+            }
+        }
+        return BPlusTreeIterator(this);
+    } else if (node->nodeType == NodeType::INTERMEDIATE){
+        int p = 1;
+        while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) >= 0)){
+            p++;
+        }
+        p--;
+        return this->getLowerBound(node->data[p].value, key);
+    } else {
+        return BPlusTreeIterator(this);
+    }
+}
+
+/*
+====== BPlusTreeIterator below: ======
+*/
 
 BPlusTreeIterator::BPlusTreeIterator(BPlusTree* bt){
     this->tree = bt;
@@ -429,4 +894,15 @@ void BPlusTreeIterator::setToBegin(){
     this->currentCumulation = 0;
     this->currentOverflowPage = nullptr;
     this->currentNode = (BPlusNode*)this->tree->treeFile->getPage(this->tree->treeFile->header->rootPageId);
+}
+
+bool BPlusTreeIterator::equals(const BPlusTreeIterator &other){
+    if (this->currentNode == nullptr){
+        if (other.currentNode == nullptr){
+            return true;
+        }
+        return false;
+    }
+
+    return ((this->currentKeyPos == other.currentKeyPos) && (this->currentValuePos == other.currentValuePos) && (this->currentNode == other.currentNode));
 }
