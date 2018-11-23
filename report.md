@@ -52,7 +52,7 @@ bool has(data_ptr key);                                         //该列中是�
 int count(data_ptr key);                                        //该列中值为key的记录数量
 int lesserCount(data_ptr key);                                  //该列中值小于key的记录数量
 int greaterCount(data_ptr key);                                 //该列中值大于key的记录数量
-BPlusTreeIterator lowerBound(data_ptr key);                     //第一个<=key的位置
+BPlusTreeIterator lowerBound(data_ptr key);                     //第一个=key或最后一个<key的位置
 BPlusTreeIterator upperBound(data_ptr key);                     //第一个>key的位置
 vector<RID> getRIDs(data_ptr key);                              //获取所有键值为key的RID
 int totalCount();                                               //B+树中总记录数量

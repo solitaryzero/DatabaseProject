@@ -104,13 +104,18 @@ void checkBPlus(){
     for (int i=0;i<15;i++){
         assert(bt->count(DataContainer::genIntData(i)) == 1);
         assert(bt->lesserCount(DataContainer::genIntData(i)) == i);
-        //cout << bt->greaterCount(DataContainer::genIntData(i)) << endl;
         assert(bt->greaterCount(DataContainer::genIntData(i)) == 14-i);
     }
 
     for (int i=0;i<15;i+=2){
         bt->insert(DataContainer::genIntData(i), i+15);
     }
+
+    BPlusTreeIterator bit4 = bt->lowerBound(DataContainer::genIntData(4));
+    assert(bit4.getValue() == 4);
+    bit4 = bt->upperBound(DataContainer::genIntData(4));
+    assert(bit4.getValue() == 5);
+
     assert(bt->totalCount() == 23);
     for (int i=0;i<15;i++){
         assert(bt->count(DataContainer::genIntData(i)) == (2-(i%2)));
@@ -219,6 +224,13 @@ void checkBPlus(){
         assert(bt->lesserCount(DataContainer::genIntData(i*2)) == i);
         assert(bt->greaterCount(DataContainer::genIntData(i*2)) == 7-i);
     }
+
+    bit7 = bt->lowerBound(DataContainer::genIntData(3));
+    assert(bit7.available());
+    assert(bit7.getValue() == 2);
+    bit7 = bt->upperBound(DataContainer::genIntData(3));
+    assert(bit7.getValue() == 4);
+    assert(bt->getRIDs(DataContainer::genIntData(3)).size() == 0);
 
     cout << "b plus insert delete 2(unique key & merge) complete!\n";
     delete(bt);

@@ -115,7 +115,7 @@ void BPlusTree::remove(data_ptr key, int rid){
     }
     vector<RID> res = this->getRIDs(key);
     bool flag = false;
-    for (int i=0;i<res.size();i++){
+    for (unsigned int i=0;i<res.size();i++){
         if (res[i].toInt() == rid){
             flag = true;
             break;
@@ -169,6 +169,8 @@ BPlusTreeIterator BPlusTree::upperBound(data_ptr key){
     BPlusTreeIterator it = this->getLowerBound(this->treeFile->header->rootPageId, key);
     if (it.available()){
         it.nextKey();
+    } else {
+        it.setToBegin();
     }
     return it;
 }
@@ -177,8 +179,11 @@ vector<RID> BPlusTree::getRIDs(data_ptr key){
     BPlusTreeIterator lower = this->lowerBound(key);
     BPlusTreeIterator upper = this->upperBound(key);
     vector<RID> res;
+    res.clear();
     if (lower.available()){
-        assert(DataOperands::compare(this->type, key, lower.getKey()) == 0);
+        if (DataOperands::compare(this->type, key, lower.getKey()) != 0){
+            return res;
+        }
     }
 
     while (lower.available() && (!lower.equals(upper))){
@@ -776,9 +781,15 @@ BPlusTreeIterator BPlusTree::getLowerBound(int pageID, data_ptr key){
         for (int i=0;i<node->recCount;i++){
             if (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[i].keyPos)) == 0){
                 return BPlusTreeIterator(this, node, i, 0);
+            } else if (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[i].keyPos)) < 0){
+                if (i == 0) {
+                    return BPlusTreeIterator(this);
+                } else {
+                    return BPlusTreeIterator(this, node, i, 0);
+                }
             }
         }
-        return BPlusTreeIterator(this);
+        return BPlusTreeIterator(this, node, node->recCount-1, 0);
     } else if (node->nodeType == NodeType::INTERMEDIATE){
         int p = 1;
         while ((p < node->recCount) && (DataOperands::compare(this->type, key, this->keyFile->getData(node->data[p].keyPos)) >= 0)){
