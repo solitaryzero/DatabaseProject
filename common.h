@@ -21,14 +21,14 @@ using namespace json11;
 
 #define TABLENAMELENGTH 256
 
-/*
 #define MAXINDEXRECPERPAGE 650
 #define MAXRECPEROVERFLOWPAGE 2000
-*/
 
 //for b-plus tree test
+/*
 #define MAXINDEXRECPERPAGE 5
 #define MAXRECPEROVERFLOWPAGE 2
+*/
 
 typedef shared_ptr<vector<unsigned char>> data_ptr;
 

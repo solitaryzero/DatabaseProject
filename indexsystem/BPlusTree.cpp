@@ -107,9 +107,10 @@ void BPlusTree::insert(data_ptr key, int rid){
 }
 
 void BPlusTree::remove(data_ptr key, int rid){
-    //pre-check, remove for speed
-    /*
+    //pre-check, comment for speed or test
+    
     if (!this->has(key)){
+        perror("record does not exist!\n");
         return;
     }
     vector<RID> res = this->getRIDs(key);
@@ -120,8 +121,10 @@ void BPlusTree::remove(data_ptr key, int rid){
             break;
         }
     }
-    if (!flag) return;
-    */
+    if (!flag) {
+        perror("record does not exist!\n");
+        return;
+    }
 
     int rootIndex;
     BPlusNode* root = (BPlusNode*)this->treeFile->getPage(this->treeFile->header->rootPageId, rootIndex);

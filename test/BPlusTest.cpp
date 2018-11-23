@@ -1,7 +1,7 @@
 #include "../common.h"
 #include "../indexsystem/BPlusTree.h"
 
-// use after modifying MAXINDEXRECPERPAGE = 5 && MAXRECPEROVERFLOWPAGE = 2
+// please run after modifying MAXINDEXRECPERPAGE = 5 && MAXRECPEROVERFLOWPAGE = 2
 
 void checkBPlus(){
     unlink("BPlusTest.TestCol.tree");
