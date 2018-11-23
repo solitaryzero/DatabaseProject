@@ -49,6 +49,9 @@ public:
     int getLesserCountIn(int pageID, data_ptr key);
     int getGreaterCountIn(int pageID, data_ptr key);
     BPlusTreeIterator getLowerBound(int pageID, data_ptr key);
+
+    //debugging functions
+    void printPage(int pageID);
 };
 
 class BPlusTreeIterator{

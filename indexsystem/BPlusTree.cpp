@@ -135,11 +135,11 @@ int BPlusTree::count(data_ptr key){
 }
 
 int BPlusTree::lesserCount(data_ptr key){
-    return 0;
+    return this->getLesserCountIn(this->treeFile->header->rootPageId, key);
 }
 
 int BPlusTree::greaterCount(data_ptr key){
-    return 0;
+    return this->getGreaterCountIn(this->treeFile->header->rootPageId, key);
 }
 
 BPlusTreeIterator BPlusTree::lowerBound(data_ptr key){
@@ -771,6 +771,57 @@ BPlusTreeIterator BPlusTree::getLowerBound(int pageID, data_ptr key){
 }
 
 /*
+====== debugging functions below ======
+*/
+
+void BPlusTree::printPage(int pageID){
+    assert(pageID <= this->treeFile->header->pageCount);
+    cout << "======\n";
+    cout << "Infomation about page " << pageID << "\n";
+    BPlusNode* p = (BPlusNode*)this->treeFile->getPage(pageID);
+    if (p->nodeType == NodeType::UNDEFINED){
+        cout << "Bad page!\n";
+        cout << "======\n";
+        return;
+    } else if (p->nodeType == NodeType::INTERMEDIATE){
+        cout << "Node type: intermediate node\n";
+        cout << "total recs(including pos 0): " << p->recCount << "\n";
+        cout << "prev page id: " << p->prevPage << "\n";
+        cout << "next page id: " << p->nextPage << "\n";
+        cout << "data represented as (keyPos, value, count):\n";
+        for (int i=0;i<p->recCount;i++){
+            cout << "(" << p->data[i].keyPos << ", " << p->data[i].value << ", " << p->data[i].count << ")\n";
+        }
+        cout << "======\n";
+        return;
+    } else if (p->nodeType == NodeType::LEAF){
+        cout << "Node type: leaf node\n";
+        cout << "total recs: " << p->recCount << "\n";
+        cout << "prev page id: " << p->prevPage << "\n";
+        cout << "next page id: " << p->nextPage << "\n";
+        cout << "data represented as (keyPos, value, count):\n";
+        for (int i=0;i<p->recCount;i++){
+            cout << "(" << p->data[i].keyPos << ", " << p->data[i].value << ", " << p->data[i].count << ")\n";
+        }
+        cout << "======\n";
+        return;
+    } else if (p->nodeType == NodeType::OVERFLOW){
+        BPlusOverflowPage *pp = (BPlusOverflowPage*)p;
+        cout << "Node type: overflow node\n";
+        cout << "total recs: " << pp->recCount << "\n";
+        cout << "father page id: " << pp->fatherPage << "\n";
+        cout << "prev page id: " << pp->prevPage << "\n";
+        cout << "next page id: " << pp->nextPage << "\n";
+        cout << "data:\n";
+        for (int i=0;i<pp->recCount;i++){
+            cout << "(" << pp->data[i] << ")\n";
+        }
+        cout << "======\n";
+        return;
+    }
+}
+
+/*
 ====== BPlusTreeIterator below: ======
 */
 
@@ -804,13 +855,13 @@ int BPlusTreeIterator::getValue(){
         return this->currentNode->data[this->currentKeyPos].value;
     }
 
-    if (this->currentValuePos == 0){
+    if ((this->currentValuePos == 0) || (this->currentOverflowPage == nullptr)){
         this->currentCumulation = 0;
         this->currentOverflowPage = (BPlusOverflowPage*)(this->tree->treeFile->getPage(this->currentNode->data[this->currentKeyPos].value));
     }
 
     assert(this->currentOverflowPage != nullptr);
-    while (this->currentCumulation+this->currentOverflowPage->recCount < this->currentValuePos){
+    while (this->currentCumulation+this->currentOverflowPage->recCount <= this->currentValuePos){
         this->currentCumulation += this->currentOverflowPage->recCount;
         this->currentOverflowPage = (BPlusOverflowPage*)(this->tree->treeFile->getPage(this->currentOverflowPage->nextPage));
     }
@@ -893,7 +944,7 @@ void BPlusTreeIterator::setToBegin(){
     this->currentValuePos = 0;
     this->currentCumulation = 0;
     this->currentOverflowPage = nullptr;
-    this->currentNode = (BPlusNode*)this->tree->treeFile->getPage(this->tree->treeFile->header->rootPageId);
+    this->currentNode = (BPlusNode*)this->tree->treeFile->getPage(this->tree->treeFile->header->firstLeaf);
 }
 
 bool BPlusTreeIterator::equals(const BPlusTreeIterator &other){

@@ -3,7 +3,8 @@
 #include "../recordsystem/UnfixedRecordFile.h"
 
 void checkUnfixed(){
-    system("rm -f UnfixedRec.test");
+    unlink("UnfixedRec.test");
+    //system("rm -f UnfixedRec.test");
     UnfixedRecordFile *uf = new UnfixedRecordFile("UnfixedRec.test");
 
     data_ptr t[5];
@@ -74,10 +75,13 @@ void checkUnfixed(){
     printf("Unfixed test iteration complete!\n");
     uf->closeFile();
     delete(uf);
+
+    unlink("UnfixedRec.test");
 }
 
 void checkFixed(){
-    system("rm -f FixedRec.test");
+    unlink("FixedRec.test");
+    //system("rm -f FixedRec.test");
     FixedRecordFile *ff = new FixedRecordFile("FixedRec.test");
     int recSize = 2000; //3 rec per page
     data_ptr t[10];
@@ -161,6 +165,8 @@ void checkFixed(){
     printf("Fixed test iteration complete!\n");
     ff->closeFile();
     delete(ff);
+
+    unlink("FixedRec.test");
 }
 
 int main(){
