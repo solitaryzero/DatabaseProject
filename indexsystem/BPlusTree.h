@@ -52,6 +52,7 @@ public:
 
     //debugging functions
     void printPage(int pageID);
+    void printLeaves();
 };
 
 class BPlusTreeIterator{

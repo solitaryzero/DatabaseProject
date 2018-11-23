@@ -107,6 +107,22 @@ void BPlusTree::insert(data_ptr key, int rid){
 }
 
 void BPlusTree::remove(data_ptr key, int rid){
+    //pre-check, remove for speed
+    /*
+    if (!this->has(key)){
+        return;
+    }
+    vector<RID> res = this->getRIDs(key);
+    bool flag = false;
+    for (int i=0;i<res.size();i++){
+        if (res[i].toInt() == rid){
+            flag = true;
+            break;
+        }
+    }
+    if (!flag) return;
+    */
+
     int rootIndex;
     BPlusNode* root = (BPlusNode*)this->treeFile->getPage(this->treeFile->header->rootPageId, rootIndex);
     if ((root->nodeType == NodeType::INTERMEDIATE) && (root->recCount == 2)){
@@ -414,7 +430,7 @@ void BPlusTree::deleteFromLegalPage(data_ptr key, int rid, int pageID){
             //unique key
             bool res = this->keyFile->deleteData(node->data[p].keyPos);
             assert(res);
-            for (int i=p;i<node->recCount;i--){
+            for (int i=p;i<node->recCount;i++){
                 node->data[i].count = node->data[i+1].count;
                 node->data[i].keyPos = node->data[i+1].keyPos;
                 node->data[i].value = node->data[i+1].value;
@@ -430,13 +446,14 @@ void BPlusTree::deleteFromLegalPage(data_ptr key, int rid, int pageID){
 
         BPlusNode* child = (BPlusNode*)this->treeFile->getPage(node->data[p].value);
         if (child->recCount <= MAXINDEXRECPERPAGE/2){
-            if (p > 0){
+            if ((p > 0) && (node->data[p-1].keyPos != 0)){     //cannot borrow from data[p-1] if it is unavailable(a virtual node)
                 BPlusNode* prevChild = (BPlusNode*)this->treeFile->getPage(node->data[p-1].value);
                 assert(prevChild->nodeType == child->nodeType);
                 if (prevChild->recCount > MAXINDEXRECPERPAGE/2){
                     this->borrowFromBackward(node, p);
                 } else {
                     this->mergeChildPageOn(node, p-1);
+                    p--;    //the original page doesn't exist now
                 }
             } else {
                 BPlusNode* nextChild = (BPlusNode*)this->treeFile->getPage(node->data[p+1].value);
@@ -453,15 +470,16 @@ void BPlusTree::deleteFromLegalPage(data_ptr key, int rid, int pageID){
         node->data[p].count--;
 
         //try to update keypos
-        child = (BPlusNode*)this->treeFile->getPage(node->data[p].value);
-        if (child->nodeType == NodeType::INTERMEDIATE){
-            node->data[p].keyPos = child->data[1].keyPos;
-        } else if (child->nodeType == NodeType::LEAF){
-            node->data[p].keyPos = child->data[0].keyPos;
-        } else {
-            assert(false);
+        if (p > 0){
+            child = (BPlusNode*)this->treeFile->getPage(node->data[p].value);
+            if (child->nodeType == NodeType::INTERMEDIATE){
+                node->data[p].keyPos = child->data[1].keyPos;
+            } else if (child->nodeType == NodeType::LEAF){
+                node->data[p].keyPos = child->data[0].keyPos;
+            } else {
+                assert(false);
+            }
         }
-
     } else {
         assert(false);
     }
@@ -527,7 +545,7 @@ void BPlusTree::borrowFromBackward(BPlusNode* node, int index){
     BPlusNode* child = (BPlusNode*)this->treeFile->getPage(node->data[index].value, childIndex);
     assert(prevChild->nodeType == child->nodeType);
 
-    for (int i=child->recCount-1;i>=0;i++){
+    for (int i=child->recCount-1;i>=0;i--){
         child->data[i+1].count = child->data[i].count;
         child->data[i+1].keyPos = child->data[i].keyPos;
         child->data[i+1].value = child->data[i].value;
@@ -540,7 +558,7 @@ void BPlusTree::borrowFromBackward(BPlusNode* node, int index){
         //update related data in father node
         node->data[index].keyPos = child->data[0].keyPos;
         node->data[index].count += child->data[0].count;
-        node->data[index-1].value -= child->data[0].count;
+        node->data[index-1].count -= child->data[0].count;
 
     } else if (child->nodeType == NodeType::INTERMEDIATE){
         child->data[1].count = prevChild->data[prevChild->recCount-1].count;
@@ -553,7 +571,7 @@ void BPlusTree::borrowFromBackward(BPlusNode* node, int index){
         //update related data in father node
         node->data[index].keyPos = child->data[1].keyPos;
         node->data[index].count += child->data[1].count;
-        node->data[index-1].value -= child->data[1].count;
+        node->data[index-1].count -= child->data[1].count;
 
     } else {
         assert(false);
@@ -585,7 +603,7 @@ void BPlusTree::borrowFromForward(BPlusNode* node, int index){
         //update related data in father node
         node->data[index+1].keyPos = nextChild->data[0].keyPos;
         node->data[index+1].count -= child->data[child->recCount].count;
-        node->data[index].value += child->data[child->recCount].count;
+        node->data[index].count += child->data[child->recCount].count;
 
     } else if (child->nodeType == NodeType::INTERMEDIATE){
         child->data[child->recCount].count = nextChild->data[1].count;
@@ -603,7 +621,7 @@ void BPlusTree::borrowFromForward(BPlusNode* node, int index){
         //update related data in father node
         node->data[index+1].keyPos = nextChild->data[1].keyPos;
         node->data[index+1].count -= child->data[child->recCount].count;
-        node->data[index].value += child->data[child->recCount].count;
+        node->data[index].count += child->data[child->recCount].count;
 
     } else {
         assert(false);
@@ -788,9 +806,9 @@ void BPlusTree::printPage(int pageID){
         cout << "total recs(including pos 0): " << p->recCount << "\n";
         cout << "prev page id: " << p->prevPage << "\n";
         cout << "next page id: " << p->nextPage << "\n";
-        cout << "data represented as (keyPos, value, count):\n";
+        cout << "data represented as (keyPos.pagenum. keyPos.slotnum, value, count):\n";
         for (int i=0;i<p->recCount;i++){
-            cout << "(" << p->data[i].keyPos << ", " << p->data[i].value << ", " << p->data[i].count << ")\n";
+            cout << "(" << RID(p->data[i].keyPos).pagenum << "." << RID(p->data[i].keyPos).slotnum << ", " << p->data[i].value << ", " << p->data[i].count << ")\n";
         }
         cout << "======\n";
         return;
@@ -799,9 +817,9 @@ void BPlusTree::printPage(int pageID){
         cout << "total recs: " << p->recCount << "\n";
         cout << "prev page id: " << p->prevPage << "\n";
         cout << "next page id: " << p->nextPage << "\n";
-        cout << "data represented as (keyPos, value, count):\n";
+        cout << "data represented as (keyPos.pagenum. keyPos.slotnum, value, count):\n";
         for (int i=0;i<p->recCount;i++){
-            cout << "(" << p->data[i].keyPos << ", " << p->data[i].value << ", " << p->data[i].count << ")\n";
+            cout << "(" << RID(p->data[i].keyPos).pagenum << "." << RID(p->data[i].keyPos).slotnum << ", " << p->data[i].value << ", " << p->data[i].count << ")\n";
         }
         cout << "======\n";
         return;
@@ -819,6 +837,21 @@ void BPlusTree::printPage(int pageID){
         cout << "======\n";
         return;
     }
+}
+
+void BPlusTree::printLeaves(){
+    int leafID = this->treeFile->header->firstLeaf;
+    int i = 1;
+    BPlusNode* node;
+    while (leafID != this->treeFile->header->lastLeaf){
+        node = (BPlusNode*)this->treeFile->getPage(leafID);
+        cout << "Leaf No. " << i << ":\n";
+        printPage(leafID);
+        leafID = node->nextPage;
+        i++;
+    }
+    cout << "Leaf No. " << i << ":\n";
+    printPage(leafID);
 }
 
 /*
@@ -891,6 +924,7 @@ void BPlusTreeIterator::nextKey(){
     int c = this->currentNode->recCount;
     if (this->currentKeyPos < c-1){
         this->currentKeyPos++;
+        this->currentValuePos = 0;
     } else {
         int pid = this->currentNode->nextPage;
         if (pid <= 0){
@@ -913,6 +947,9 @@ void BPlusTreeIterator::previous(){
         this->currentValuePos--;
     } else {
         this->previousKey();
+        if (this->currentNode != nullptr){
+            this->currentValuePos = this->currentNode->data[this->currentKeyPos].count-1;
+        }
     }
 }
 
@@ -921,6 +958,7 @@ void BPlusTreeIterator::previousKey(){
     this->currentOverflowPage = nullptr;
     if (this->currentKeyPos > 0){
         this->currentKeyPos--;
+        this->currentValuePos = 0;
     } else {
         int pid = this->currentNode->prevPage;
         if (pid <= 0){
@@ -930,7 +968,7 @@ void BPlusTreeIterator::previousKey(){
         } else {
             this->currentNode = (BPlusNode*)this->tree->treeFile->getPage(pid);
             this->currentKeyPos = this->currentNode->recCount-1;
-            this->currentValuePos = this->currentNode->data[this->currentKeyPos].count-1;
+            this->currentValuePos = 0;
         }
     }
 }
