@@ -10,7 +10,7 @@ class TableInfo;
 class ColumnInfo{
 public:
     ColumnInfo(TableInfo *t, string rawJson);
-    ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz);
+    ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz, int useIndex = 0);
     ~ColumnInfo();
 
     json11::Json infoToJson();
@@ -22,6 +22,7 @@ public:
     varTypes columnType;
     bool isFixed;
     int size;
+    int useIndex = 0;
 };
 
 #endif

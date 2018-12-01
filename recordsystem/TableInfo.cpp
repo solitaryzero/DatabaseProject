@@ -36,8 +36,8 @@ TableInfo::~TableInfo(){
     writeBack();
 }
 
-void TableInfo::addNewColumn(string colName, varTypes colType, int siz){
-    shared_ptr<ColumnInfo> c = make_shared<ColumnInfo>(this, colName, colType, siz);
+void TableInfo::addNewColumn(string colName, varTypes colType, int siz, int useIndex){
+    shared_ptr<ColumnInfo> c = make_shared<ColumnInfo>(this, colName, colType, siz, useIndex);
     this->colInfos.push_back(c);
     this->colIndex.insert({colName, this->colInfos.size()-1});
     this->colInfoMapping.insert({colName, c});
@@ -97,9 +97,10 @@ void TableInfo::showTableInfo(){
     //cout << "=============\n";
     cout << "Table name: " << this->tableName << "\n";
     cout << this->colNumbers << " columns in total:\n";
-    cout << "Name\t\tType\t\tSize\n";
+    cout << "Name\t\tType\t\tSize\t\tIndexed\n";
     for (int i=0;i<this->colNumbers;i++){
-        cout << this->colInfos[i]->columnName << "\t\t" << this->colInfos[i]->columnTypeName << "\t\t" << this->colInfos[i]->size << "\n";
+        cout << this->colInfos[i]->columnName << "\t\t" << this->colInfos[i]->columnTypeName << "\t\t" 
+        << this->colInfos[i]->size << "\t\t" << this->colInfos[i]->useIndex << "\n";
     }
     //cout << "=============\n";
 }

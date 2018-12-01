@@ -16,7 +16,7 @@ public:
     TableInfo(string tableName, bool newTable = false);
     ~TableInfo();
 
-    void addNewColumn(string colName, varTypes colType, int siz);
+    void addNewColumn(string colName, varTypes colType, int siz, int useIndex = 0);
     string infoToString();
     void writeBack();
     void genConverter();

@@ -17,9 +17,10 @@ ColumnInfo::ColumnInfo(TableInfo *t, string rawJson){
     } else {
         this->size = DataOperands::getTypeSize(this->columnType);
     }
+    this->useIndex = j["useIndex"].int_value();
 }
 
-ColumnInfo::ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz){
+ColumnInfo::ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz, int useIndex){
     this->tabInfo = t;
     this->columnName = colName;
     this->columnTypeName = DataOperands::typeName(colType);
@@ -30,6 +31,7 @@ ColumnInfo::ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz){
         this->isFixed = true;
     }
     this->size = siz;
+    this->useIndex = 0;
 }
 
 ColumnInfo::~ColumnInfo(){
@@ -40,7 +42,8 @@ Json ColumnInfo::infoToJson(){
     Json res = Json::object{
         {"name", this->columnName},
         {"type", this->columnTypeName},
-        {"size", this->size}
+        {"size", this->size},
+        {"useIndex", this->useIndex}
     };
     return res;
 }
