@@ -54,6 +54,7 @@ WHITESPACE              [ \t]
 "DESC"                  { return DESC; }
 "INDEX"                 { return INDEX; }
 "AND"                   { return AND; }
+"OR"                    { return OR; }
 
 "CHAR"                  { return CHAR; }
 "FLOAT"                 { return FLOAT; }
@@ -77,11 +78,11 @@ WHITESPACE              [ \t]
 "."                     { return yytext[0]; }
 "*"                     { return yytext[0]; }
 
-"AVG"                   { return OP_AVG; }
-"SUM"                   { return OP_SUM; }
-"MIN"                   { return OP_MIN; }
-"MAX"                   { return OP_MAX; }
-"COUNT"                 { return OP_COUNT; }
+"AVG"                   { return AVG; }
+"SUM"                   { return SUM; }
+"MIN"                   { return MIN; }
+"MAX"                   { return MAX; }
+"COUNT"                 { return COUNT; }
 
 {NEWLINE}               { /* pass */ }
 {WHITESPACE}            { /* pass */ }

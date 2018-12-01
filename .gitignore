@@ -2,3 +2,4 @@
 /.vscode/
 !.gitignore
 /*/*.yy.c
+/*/y.tab.*
