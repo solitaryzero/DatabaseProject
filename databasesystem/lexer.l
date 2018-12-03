@@ -16,6 +16,8 @@ WHITESPACE              [ \t]
 %{
 #include <cstring>
 #include <cstdio>
+#include "Glue.h"
+#include "myyacc.h"
 %}
 
 %%
@@ -38,7 +40,7 @@ WHITESPACE              [ \t]
 "PRIMARY"               { return PRIMARY; }
 "KEY"                   { return KEY; }
 "NOT"                   { return NOT; }
-"NULL"                  { return NULL; }
+"NULL"                  { return MYNULL; }
 "INSERT"                { return INSERT; }
 "INTO"                  { return INTO; }
 "VALUES"                { return VALUES; }

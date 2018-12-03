@@ -4,6 +4,7 @@
 #include "../common.h"
 #include "TableInfo.h"
 #include "DataOperands.h"
+#include "../indexsystem/BPlusTree.h"
 
 class TableInfo;
 
@@ -15,12 +16,16 @@ public:
 
     json11::Json infoToJson();
     string toJsonDump();
+    void setPrimary(bool para);
 
     TableInfo* tabInfo;
+    shared_ptr<BPlusTree> indexTree = nullptr;
     string columnName;
     string columnTypeName;
     varTypes columnType;
     bool isFixed;
+    bool allowNull = true;
+    bool isPrimary = false;
     int size;
     int useIndex = 0;
 };

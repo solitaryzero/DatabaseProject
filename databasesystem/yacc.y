@@ -1,11 +1,16 @@
 %{
-#include string
-
+#include <string>
+#include <vector>
+#include <memory>
+#include "Statement.h"
+#include "DatabaseManager.h"
+#include "Glue.h"
+using namespace std;
 %}
 
 %token DATABASE DATABASES TABLE TABLES
 %token SHOW CREATE DROP USE
-%token PRIMARY KEY NOT NULL
+%token PRIMARY KEY NOT MYNULL
 %token INSERT INTO VALUES DELETE FROM WHERE UPDATE SET
 %token SELECT IS 
 %token DESC INDEX AND OR
@@ -15,7 +20,11 @@
 %token AVG SUM MIN MAX COUNT
 
 %union {
-    std::string* data;    //acts as string or as some kind of char[] to store values
+    string* data;    //acts as string or as some kind of char[] to store values
+    Statement* stmt;
+    Field* field;
+    vector<Field>* fieldList;
+    Type* type;
 }
 
 %token <data> IDENTIFIER;
@@ -23,136 +32,159 @@
 %token <data> VALUE_FLOAT;
 %token <data> VALUE_STRING;
 
+%type <data> dbName tbName colName
+%type <stmt> stmt sysStmt dbStmt tbStmt idxStmt
+%type <field> field
+%type <fieldList> fieldList
+%type <type> type
+
 %%
 
 program         : /* empty */
                     {
-
+                        /* pass */
                     }
                 | program stmt 
                     {
-
-                    
+                        $2->run(dbm);
                     }
                 ;
 
 stmt            : sysStmt ';'
                     {
-
+                        $$ = $1;
                     }
                 | dbStmt ';'
                     {
-
+                        $$ = $1;
                     }
                 | tbStmt ';'
                     {
-
+                        $$ = $1;
                     }
                 | idxStmt ';'
                     {
-
+                        $$ = $1;
                     }
                 ;
 
 sysStmt         : SHOW DATABASES
                     {
-
+                        $$ = new ShowDatabaseStatement();
                     }
                 ;
                 
 dbStmt          : CREATE DATABASE dbName
                     {
-
+                        $$ = new CreateDatabaseStatement($3);
                     }
                 | DROP DATABASE dbName
                     {
-
+                        $$ = new DropDatabaseStatement($3);
                     }
                 | USE dbName
                     {
-
+                        $$ = new UseDatabaseStatement($2);
                     }
                 | SHOW TABLES
                     {
-
+                        $$ = new ShowTableStatement();
                     }
                 ;
 
 tbStmt          : CREATE TABLE tbName '(' fieldList ')'
                     {
-
+                        $$ = new CreateTableStatement($3, $5);
                     }
                 | DROP TABLE tbName
                     {
-
+                        $$ = new DropTableStatement($3);
                     }
                 | DESC tbName
                     {
-
+                        $$ = new DescTableStatement($2);
                     }
                 | INSERT INTO tbName VALUES valueLists
                     {
-
+                        $$ = new EmptyStatement();
                     }
                 | DELETE FROM tbName WHERE whereClauses
                     {
-
+                        $$ = new EmptyStatement();
                     }
                 | UPDATE tbName SET setClause WHERE whereClauses
                     {
-
+                        $$ = new EmptyStatement();
                     }
                 | SELECT selector FROM tableList WHERE whereClauses
                     {
-
+                        $$ = new EmptyStatement();
                     }
                 ;
 
 idxStmt         : CREATE INDEX tbName '(' colName ')'
                     {
-
+                        $$ = new CreateIndexStatement($3, $5);
                     }
                 | DROP INDEX tbName '(' colName ')'
                     {
-
+                        $$ = new DropIndexStatement($3, $5);
                     }
                 ;
 
 fieldList       : field
                     {
-                        
+                        $$ = new vector<Field>();
+                        $$->push_back(*$1);
+                        delete $1;
                     }
                 | fieldList ',' field
                     {
-
+                        $$->push_back(*$3);
+                        delete $3;
                     }
                 ;
 
 field           : colName type
                     {
-
+                        $$ = new Field($1, $2, true);
+                        $$->mode = FIELD_COMMON;
+                        delete $1;
+                        delete $2;
                     }
-                | colName type NOT NULL
+                | colName type NOT MYNULL
                     {
-
+                        $$ = new Field($1, $2, false);
+                        $$->mode = FIELD_NOTNULL;
+                        delete $1;
+                        delete $2;
                     }
                 | PRIMARY KEY '(' colName ')'
                     {
-
+                        $$ = new Field($4);
+                        $$->mode = FIELD_PRIMARY;
+                        delete($4);
                     }
                 ;
 
 type            : INT '(' VALUE_INT ')'
                     {
-
+                        $$ = new Type(varTypes::INT_TYPE, atoi($3->c_str()));
+                        delete($3);
+                    }
+                | CHAR '(' VALUE_INT ')'
+                    {
+                        $$ = new Type(varTypes::CHAR_TYPE, atoi($3->c_str()));
+                        delete($3);
                     }
                 | VARCHAR '(' VALUE_INT ')'
                     {
-
+                        $$ = new Type(varTypes::VARCHAR_TYPE, atoi($3->c_str()));
+                        delete($3);
                     }
                 | FLOAT
                     {
-
+                        $$ = new Type(varTypes::FLOAT_TYPE);
                     }
                 ;
     
@@ -178,17 +210,17 @@ valueList       : value
                 
 value           : VALUE_INT
                     {
-
+                        
                     }
                 | VALUE_STRING
                     {
-
+                        
                     }
                 | VALUE_FLOAT
                     {
-
+                        
                     }
-                | NULL
+                | MYNULL
                     {
 
                     }
@@ -212,11 +244,11 @@ whereClause     : col op expr
                     {
 
                     }
-                | col IS NOT NULL
+                | col IS NOT MYNULL
                     {
 
                     }
-                | col IS NULL
+                | col IS MYNULL
                     {
 
                     }
@@ -309,19 +341,19 @@ tableList       : tbName
 
 dbName          : IDENTIFIER
                     {
-
+                        $$ = $1;
                     }
                 ;
 
 tbName          : IDENTIFIER
                     {
-
+                        $$ = $1;
                     }
                 ;
 
 colName         : IDENTIFIER
                     {
-
+                        $$ = $1;
                     }
                 ;
 

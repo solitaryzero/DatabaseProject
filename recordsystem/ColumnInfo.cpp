@@ -18,6 +18,12 @@ ColumnInfo::ColumnInfo(TableInfo *t, string rawJson){
         this->size = DataOperands::getTypeSize(this->columnType);
     }
     this->useIndex = j["useIndex"].int_value();
+    this->allowNull = j["allowNull"].bool_value();
+    this->isPrimary = j["isPrimary"].bool_value();
+
+    if (this->useIndex == 1){
+        this->indexTree = make_shared<BPlusTree>(t->tableName, this->columnName, this->columnType);
+    }
 }
 
 ColumnInfo::ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz, int useIndex){
@@ -31,11 +37,17 @@ ColumnInfo::ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz, 
         this->isFixed = true;
     }
     this->size = siz;
-    this->useIndex = 0;
+    this->useIndex = useIndex;
+    if (this->useIndex == 1){
+        this->indexTree = make_shared<BPlusTree>(t->tableName, this->columnName, this->columnType);
+    }
 }
 
 ColumnInfo::~ColumnInfo(){
-    
+    if (this->indexTree != nullptr){
+        this->indexTree->closeIndex();
+        this->indexTree = nullptr;
+    }
 }
 
 Json ColumnInfo::infoToJson(){
@@ -43,11 +55,26 @@ Json ColumnInfo::infoToJson(){
         {"name", this->columnName},
         {"type", this->columnTypeName},
         {"size", this->size},
-        {"useIndex", this->useIndex}
+        {"useIndex", this->useIndex},
+        {"allowNull", this->allowNull},
+        {"isPrimary", this->isPrimary}
     };
     return res;
 }
 
 string ColumnInfo::toJsonDump(){
     return infoToJson().dump();
+}
+
+void ColumnInfo::setPrimary(bool para){
+    if (!para){
+        this->isPrimary = false;
+        return;
+    }
+
+    this->isPrimary = true;
+    if (this->useIndex == 0){
+        this->useIndex = 1;
+        this->indexTree = make_shared<BPlusTree>(this->tabInfo->tableName, this->columnName, this->columnType);
+    }
 }

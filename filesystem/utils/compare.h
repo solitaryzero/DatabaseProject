@@ -19,7 +19,6 @@ using namespace std;
 #define LE 1
 #define GE 2
 #define E 4
-#define IS 5
 #define UNI 0
 #define UNUNI 1
 #define N 0

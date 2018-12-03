@@ -24,6 +24,11 @@ using namespace json11;
 #define MAXINDEXRECPERPAGE 650
 #define MAXRECPEROVERFLOWPAGE 2000
 
+#define FIELD_UNKNOWN 0
+#define FIELD_COMMON 1
+#define FIELD_NOTNULL 2
+#define FIELD_PRIMARY 3
+
 //for b-plus tree test
 /*
 #define MAXINDEXRECPERPAGE 5
@@ -33,6 +38,7 @@ using namespace json11;
 typedef shared_ptr<vector<unsigned char>> data_ptr;
 
 enum class varTypes {
+    UNKNOWN_TYPE,
     INT_TYPE,
     FLOAT_TYPE,
     CHAR_TYPE,

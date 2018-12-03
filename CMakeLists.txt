@@ -16,6 +16,18 @@ foreach(M ${MODULES})
     endif()
 endforeach()
 
+find_package(FLEX)
+find_package(BISON)
+remove(NOEMPTY_MODULES databasesystem)
+
+message(STATUS ${NOEMPTY_MODULES})
+
+FLEX_TARGET(Lexer databasesystem/lexer.l ${CMAKE_CURRENT_BINARY_DIR}/mylexer.cc COMPILE_FLAGS -i)
+BISON_TARGET(Parser databasesystem/yacc.y ${CMAKE_CURRENT_BINARY_DIR}/myyacc.cc COMPILE_FLAGS --defines=${CMAKE_CURRENT_BINARY_DIR}/myyacc.h)
+target_sources(databasesystem PUBLIC ${BISON_Parser_OUTPUTS} ${FLEX_Lexer_OUTPUTS})
+target_include_directories(databasesystem PUBLIC databasesystem)
+set(NOEMPTY_MODULES ${NOEMPTY_MODULES} databasesystem)
+
 message(STATUS ${NOEMPTY_MODULES})
 
 file(GLOB TARGETS_CPP test/*.cpp)

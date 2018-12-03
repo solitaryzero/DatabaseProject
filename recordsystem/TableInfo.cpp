@@ -94,15 +94,16 @@ int TableInfo::getFixedRecordLength(){
 }
 
 void TableInfo::showTableInfo(){
-    //cout << "=============\n";
+    cout << "=============\n";
     cout << "Table name: " << this->tableName << "\n";
     cout << this->colNumbers << " columns in total:\n";
-    cout << "Name\t\tType\t\tSize\t\tIndexed\n";
+    cout << "Name\t\tType\t\tSize\t\tIndexed\t\tAllowNull\t\tPrimary\n";
     for (int i=0;i<this->colNumbers;i++){
         cout << this->colInfos[i]->columnName << "\t\t" << this->colInfos[i]->columnTypeName << "\t\t" 
-        << this->colInfos[i]->size << "\t\t" << this->colInfos[i]->useIndex << "\n";
+        << this->colInfos[i]->size << "\t\t" << this->colInfos[i]->useIndex << "\t\t" 
+        << this->colInfos[i]->allowNull << "\t\t" << this->colInfos[i]->isPrimary << "\n";
     }
-    //cout << "=============\n";
+    cout << "=============\n";
 }
 
 void TableInfo::openDataFile(){
