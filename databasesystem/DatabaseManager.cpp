@@ -65,7 +65,7 @@ void DatabaseManager::switchDatabase(string dbName){
 void DatabaseManager::createDatabase(string dbName){
     string fullPath = this->pathBase+"/"+dbName;
     if (access(fullPath.c_str(), F_OK) == 0){
-        cout << "database" << dbName << "already exists!\n";
+        cout << "database " << dbName << " already exists!\n";
         return;
     }
 
@@ -102,6 +102,7 @@ void DatabaseManager::showTables(){
     auto it = this->tablePool.begin();
     while (it != this->tablePool.end()){
         cout << it->first << "\n";
+        it++;
     }
 
     cout << "================\n";
@@ -130,14 +131,15 @@ shared_ptr<TableInfo> DatabaseManager::createTable(string tableName, vector<pair
         return nullptr;
     }
     shared_ptr<TableInfo> tif = createTable(tableName);
-    int ind = 0;
     for (unsigned int i=0;i<cols.size();i++){
+        /*
         if ((cols[i].second == varTypes::VARCHAR_TYPE) || (cols[i].second == varTypes::CHAR_TYPE)){
-            tif->addNewColumn(cols[i].first, cols[i].second, sizes[ind]);
-            ind++;
+            tif->addNewColumn(cols[i].first, cols[i].second, sizes[i]);
         } else {
             tif->addNewColumn(cols[i].first, cols[i].second, DataOperands::getTypeSize(cols[i].second));
         }
+        */
+        tif->addNewColumn(cols[i].first, cols[i].second, sizes[i]);
     }
     openDataFile(tif);
     this->tablePool[tableName] = tif;

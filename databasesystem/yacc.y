@@ -149,21 +149,16 @@ field           : colName type
                     {
                         $$ = new Field($1, $2, true);
                         $$->mode = FIELD_COMMON;
-                        delete $1;
-                        delete $2;
                     }
                 | colName type NOT MYNULL
                     {
                         $$ = new Field($1, $2, false);
                         $$->mode = FIELD_NOTNULL;
-                        delete $1;
-                        delete $2;
                     }
                 | PRIMARY KEY '(' colName ')'
                     {
                         $$ = new Field($4);
                         $$->mode = FIELD_PRIMARY;
-                        delete($4);
                     }
                 ;
 

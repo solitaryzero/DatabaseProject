@@ -94,6 +94,7 @@ int TableInfo::getFixedRecordLength(){
 }
 
 void TableInfo::showTableInfo(){
+    /*
     cout << "=============\n";
     cout << "Table name: " << this->tableName << "\n";
     cout << this->colNumbers << " columns in total:\n";
@@ -104,6 +105,17 @@ void TableInfo::showTableInfo(){
         << this->colInfos[i]->allowNull << "\t\t" << this->colInfos[i]->isPrimary << "\n";
     }
     cout << "=============\n";
+    */
+
+    printf("=============\n");
+    printf("Table name: %-30s\n", this->tableName.c_str());
+    printf("%d columns in total:\n", this->colNumbers);
+    printf("Name            Type            Size            Indexed         AllowNull       Primary         \n");
+    for (int i=0;i<this->colNumbers;i++){
+        printf("%-16s%-16s%-16d%-16d%-16d%-16d\n", this->colInfos[i]->columnName.c_str(), this->colInfos[i]->columnTypeName.c_str(), this->colInfos[i]->size,
+        this->colInfos[i]->useIndex, this->colInfos[i]->allowNull, this->colInfos[i]->isPrimary);
+    }
+    printf("=============\n");
 }
 
 void TableInfo::openDataFile(){
