@@ -64,6 +64,7 @@ WHITESPACE              [ \t]
 "DECIMAL"               { return DECIMAL; }
 
 "FOREIGN"               { return FOREIGN; }
+"REFERENCES"            { return REFERENCES; }
 
 "="                     { return OP_EQ; }
 "<>"                    { return OP_NE; }

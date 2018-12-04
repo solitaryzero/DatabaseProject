@@ -32,16 +32,30 @@ public:
         this->allowNull = allowNull;
     }
 
-    Field(string *ss){
-        this->name = *ss;
+    Field(vector<string> *ss){
+        this->colNames = *ss;
         delete ss;
-        this->allowNull = false;
+    }
+
+    Field(string *scName, string *dtName, string *dcName){
+        this->srcColName = *scName;
+        delete scName;
+        this->destTabName = *dtName;
+        delete dtName;
+        this->destColName = *dcName;
+        delete dcName;
     }
 
     string name;
     Type t;
     bool allowNull;
     int mode;
+
+    vector<string> colNames;
+
+    string srcColName;
+    string destTabName;
+    string destColName;
 };
 
 #endif

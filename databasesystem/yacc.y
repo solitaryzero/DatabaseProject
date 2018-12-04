@@ -15,7 +15,7 @@ using namespace std;
 %token SELECT IS 
 %token DESC INDEX AND OR
 %token INT VARCHAR CHAR FLOAT DATE DECIMAL
-%token FOREIGN
+%token FOREIGN REFERENCES
 %token OP_EQ OP_NE OP_GT OP_LT OP_LE OP_GE
 %token AVG SUM MIN MAX COUNT
 
@@ -24,6 +24,7 @@ using namespace std;
     Statement* stmt;
     Field* field;
     vector<Field>* fieldList;
+    vector<string>* colNameList;
     Type* type;
 }
 
@@ -37,6 +38,7 @@ using namespace std;
 %type <field> field
 %type <fieldList> fieldList
 %type <type> type
+%type <colNameList> colNames
 
 %%
 
@@ -155,10 +157,15 @@ field           : colName type
                         $$ = new Field($1, $2, false);
                         $$->mode = FIELD_NOTNULL;
                     }
-                | PRIMARY KEY '(' colName ')'
+                | PRIMARY KEY '(' colNames ')'
                     {
                         $$ = new Field($4);
                         $$->mode = FIELD_PRIMARY;
+                    }
+                | FOREIGN KEY '(' colName ')' REFERENCES tbName '(' colName ')'
+                    {
+                        $$ = new Field($4, $7, $9);
+                        $$->mode = FIELD_FOREIGN;
                     }
                 ;
 
@@ -180,6 +187,14 @@ type            : INT '(' VALUE_INT ')'
                 | FLOAT
                     {
                         $$ = new Type(varTypes::FLOAT_TYPE);
+                    }
+                | DATE
+                    {
+                        $$ = new Type(varTypes::DATE_TYPE);
+                    }
+                | DECIMAL
+                    {
+                        $$ = new Type(varTypes::DECIMAL_TYPE);
                     }
                 ;
     
@@ -346,9 +361,26 @@ tbName          : IDENTIFIER
                     }
                 ;
 
+colNames        : colName
+                    {
+                        $$ = new vector<string>();
+                        $$->push_back(*$1);
+                        delete $1;
+                    }
+                | colNames ',' colName
+                    {
+                        $$->push_back(*$3);
+                        delete $3;
+                    }
+
 colName         : IDENTIFIER
                     {
                         $$ = $1;
+                    }
+                | DATE
+                    {
+                        printf("[Warning] keyword date used as column name!\n");
+                        $$ = new string("date");
                     }
                 ;
 

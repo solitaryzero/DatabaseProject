@@ -24,3 +24,37 @@ CREATE TABLE website(
 	url varchar(100),
 	PRIMARY KEY (id)
 );
+
+CREATE TABLE price(
+	website_id int(10) NOT NULL,
+	book_id int(10) NOT NULL,
+	price float NOT NULL,
+	PRIMARY KEY (website_id,book_id),
+	FOREIGN KEY (website_id) REFERENCES website(id),
+	FOREIGN KEY (book_id) REFERENCES book(id)
+);
+
+CREATE TABLE orders(
+	id int(10) NOT NULL,
+	website_id int(10) NOT NULL,
+	customer_id int(10) NOT NULL,
+	book_id int(10) NOT NULL,
+	date date,
+	quantity int(10),
+	PRIMARY KEY (id),
+	FOREIGN KEY (website_id) REFERENCES website(id),
+	FOREIGN KEY (customer_id) REFERENCES customer(id),
+	FOREIGN KEY (book_id) REFERENCES book(id)
+);
+
+DESC customer;
+DESC book;
+DESC website;
+DESC price;
+DESC orders;
+DESC nonexistent;
+DROP TABLE customer;
+DROP TABLE orders;
+DESC customer;
+DROP TABLE customer;
+SHOW TABLES;

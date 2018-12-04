@@ -23,10 +23,17 @@ public:
     string columnName;
     string columnTypeName;
     varTypes columnType;
+
     bool isFixed;
     bool allowNull = true;
-    bool isPrimary = false;
+    bool isPrimary = false; 
+    bool hasForeign = false;
+    string foreignTableName = "";
+    string foreignColumnName = "";
+    vector<pair<string, string>> referedBy;   //by certain table and certain column
+
     int size;
+    int showLength = -1; //int 类型的显示长度
     int useIndex = 0;
 };
 

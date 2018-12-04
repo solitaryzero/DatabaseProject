@@ -12,14 +12,18 @@ ColumnInfo::ColumnInfo(TableInfo *t, string rawJson){
     } else {
         this->isFixed = true;
     }
-    if ((this->columnType == varTypes::CHAR_TYPE) || (this->columnType == varTypes::VARCHAR_TYPE)){
+    if ((this->columnType == varTypes::CHAR_TYPE) || (this->columnType == varTypes::VARCHAR_TYPE) || (this->columnType == varTypes::INT_TYPE)){
         this->size = j["size"].int_value();
     } else {
         this->size = DataOperands::getTypeSize(this->columnType);
     }
+    this->showLength = j["showLength"].int_value();
     this->useIndex = j["useIndex"].int_value();
     this->allowNull = j["allowNull"].bool_value();
     this->isPrimary = j["isPrimary"].bool_value();
+    this->hasForeign = j["hasForeign"].bool_value();
+    this->foreignTableName = j["foreignTableName"].string_value();
+    this->foreignColumnName = j["foreignColumnName"].string_value();
 
     if (this->useIndex == 1){
         this->indexTree = make_shared<BPlusTree>(t->tableName, this->columnName, this->columnType);
@@ -55,9 +59,13 @@ Json ColumnInfo::infoToJson(){
         {"name", this->columnName},
         {"type", this->columnTypeName},
         {"size", this->size},
+        {"showLength", this->showLength},
         {"useIndex", this->useIndex},
         {"allowNull", this->allowNull},
-        {"isPrimary", this->isPrimary}
+        {"isPrimary", this->isPrimary},
+        {"hasForeign", this->hasForeign},
+        {"foreignTableName", this->foreignTableName},
+        {"foreignColumnName", this->foreignColumnName}
     };
     return res;
 }

@@ -37,6 +37,16 @@ public:
     void setChar(string colName, string dat, bool padding = true);
     void setChar(int colIndex, string dat, bool padding = true);
 
+    decimal getDecimal(string colName);
+    decimal getDecimal(int colIndex);
+    void setDecimal(string colName, decimal dat);
+    void setDecimal(int colIndex, decimal dat);
+
+    date getDate(string colName);
+    date getDate(int colIndex);
+    void setDate(string colName, date dat);
+    void setDate(int colIndex, date dat);
+
     void setNull(string colName);
     void setNull(int colIndex);
     bool isNull(string colName);

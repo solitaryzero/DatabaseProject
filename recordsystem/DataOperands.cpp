@@ -74,15 +74,30 @@ int DataOperands::compare(varTypes t, data_ptr left, data_ptr right){
         case varTypes::DECIMAL_TYPE:
         {
             int l1 = (*(int*)(left->data()));
-            int l2 = (*(int*)(left->data()+4));
+            int l2 = (*(int*)(left->data()+sizeof(int)));
             int r1 = (*(int*)(right->data()));
-            int r2 = (*(int*)(right->data()+4));
+            int r2 = (*(int*)(right->data()+sizeof(int)));
             if (l1 < r1) return -1;
             if (l1 > r1) return 1;
             if (l2 < r2) return -1;
             if (l2 > r2) return 1;
             return 0;
             break;
+        }
+        case varTypes::DATE_TYPE:
+        {
+            int lyear = (*(int*)(left->data()));
+            int ryear = (*(int*)(right->data()));
+            int lmonth = (*(int*)(left->data()+sizeof(int)));
+            int rmonth = (*(int*)(right->data()+sizeof(int)));
+            int lday = (*(int*)(left->data()+sizeof(int)*2));
+            int rday = (*(int*)(right->data()+sizeof(int)*2));
+            if (lyear < ryear) return -1;
+            if (lyear > ryear) return 1;
+            if (lmonth < rmonth) return -1;
+            if (lmonth > rmonth) return 1;
+            if (lday < rday) return -1;
+            if (lday > rday) return 1;
         }
         default:
             assert(false);
@@ -121,6 +136,8 @@ int DataOperands::getTypeSize(varTypes t){
             return sizeof(float);
         case varTypes::DECIMAL_TYPE:
             return sizeof(int)*2;
+        case varTypes::DATE_TYPE:
+            return sizeof(int)*3;
         default:
             return -1;
     }

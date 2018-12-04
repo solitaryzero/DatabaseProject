@@ -110,11 +110,27 @@ void TableInfo::showTableInfo(){
     printf("=============\n");
     printf("Table name: %-30s\n", this->tableName.c_str());
     printf("%d columns in total:\n", this->colNumbers);
-    printf("Name            Type            Size            Indexed         AllowNull       Primary         \n");
+    printf("Name            Type            Size            Indexed         AllowNull       Primary\n");
     for (int i=0;i<this->colNumbers;i++){
         printf("%-16s%-16s%-16d%-16d%-16d%-16d\n", this->colInfos[i]->columnName.c_str(), this->colInfos[i]->columnTypeName.c_str(), this->colInfos[i]->size,
         this->colInfos[i]->useIndex, this->colInfos[i]->allowNull, this->colInfos[i]->isPrimary);
     }
+
+    printf("-------------\n");
+    for (int i=0;i<this->colNumbers;i++){
+        if (this->colInfos[i]->hasForeign){
+            printf("Column %s is foreign key, it refers to %s.%s\n", this->colInfos[i]->columnName.c_str(), this->colInfos[i]->foreignTableName.c_str(), this->colInfos[i]->foreignColumnName.c_str());
+        }
+
+        if (this->colInfos[i]->referedBy.size() > 0){
+            printf("Column %s is used as foreign key by: ", this->colInfos[i]->columnName.c_str());
+            for (unsigned int j=0;j<this->colInfos[i]->referedBy.size();j++){
+                printf("(%s.%s) ", this->colInfos[i]->referedBy[j].first.c_str(), this->colInfos[i]->referedBy[j].second.c_str());
+            }
+            printf("\n");
+        }
+    }
+
     printf("=============\n");
 }
 

@@ -28,6 +28,7 @@ using namespace json11;
 #define FIELD_COMMON 1
 #define FIELD_NOTNULL 2
 #define FIELD_PRIMARY 3
+#define FIELD_FOREIGN 4
 
 //for b-plus tree test
 /*
@@ -45,6 +46,19 @@ enum class varTypes {
     VARCHAR_TYPE,
     DATE_TYPE,
     DECIMAL_TYPE
+};
+
+class date{
+public:
+    int year;
+    int month;
+    int day;
+};
+
+class decimal{
+public:
+    int integer;
+    int remainder;
 };
 
 class DataContainer{
@@ -85,6 +99,21 @@ public:
         for (unsigned int i=0;i<s.length();i++){
             res->data()[i] = (unsigned char)s[i];
         }
+        return res;
+    }
+
+    static data_ptr genDecimalData(int i, int r){
+        data_ptr res = genDataContainer(sizeof(int)*2);
+        *(int*)(res->data()) = i;
+        *(int*)(res->data()+sizeof(int)) = r;
+        return res;
+    }
+
+    static data_ptr genDateData(int year, int month, int day){
+        data_ptr res = genDataContainer(sizeof(int)*3);
+        *(int*)(res->data()) = year;
+        *(int*)(res->data()+sizeof(int)) = month;
+        *(int*)(res->data()+sizeof(int)) = day;
         return res;
     }
 };

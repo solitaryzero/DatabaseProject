@@ -60,6 +60,20 @@ void DatabaseManager::switchDatabase(string dbName){
             this->openTable(fname.substr(0, fname.length()-suffix.length()));
         }
     } 
+
+    for (auto x : this->tablePool){
+        shared_ptr<TableInfo> ti = x.second;
+        for (int i=0;i<ti->colNumbers;i++){
+            shared_ptr<ColumnInfo> ci = ti->colInfos[i];
+            if (ci->hasForeign){
+                string dt = ci->foreignTableName;
+                string dc = ci->foreignColumnName;
+                assert(this->tablePool.find(dt) != this->tablePool.end());
+                assert(this->tablePool[dt]->colInfoMapping.find(dc) != this->tablePool[dt]->colInfoMapping.end());
+                this->tablePool[dt]->colInfoMapping[dc]->referedBy.push_back({ti->tableName, ci->columnName});
+            }
+        }
+    }
 }
 
 void DatabaseManager::createDatabase(string dbName){
@@ -161,9 +175,41 @@ void DatabaseManager::dropTable(string tableName){
         cout << "Table " << tableName << " doesn't exist!\n";
         return;
     }
+
+    shared_ptr<TableInfo> ti = this->tablePool[tableName];
+    //check if used as foreign key
+    for (int i=0;i<ti->colNumbers;i++){
+        if (ti->colInfos[i]->referedBy.size() > 0){
+            cout << "Column " << ti->colInfos[i]->columnName << " refered by (" 
+            << ti->colInfos[i]->referedBy[0].first << "." << ti->colInfos[i]->referedBy[0].second << "), abort.\n";
+            return;
+        }
+    }
+
+    //remove foreign key dependencies
+    for (int i=0;i<ti->colNumbers;i++){
+        if (ti->colInfos[i]->hasForeign){
+            string dtName = ti->colInfos[i]->foreignTableName;
+            string dcName = ti->colInfos[i]->foreignColumnName;
+            assert((dtName != "") && (dcName != ""));
+            assert(this->tablePool.find(dtName) != this->tablePool.end());
+            assert(this->tablePool[dtName]->colInfoMapping.find(dcName) != this->tablePool[dtName]->colInfoMapping.end());
+            auto dest = this->tablePool[dtName]->colInfoMapping[dcName];
+            for (unsigned int j=0;j<dest->referedBy.size();j++){
+                if ((dest->referedBy[j].first == tableName) && (dest->referedBy[j].second == ti->colInfos[i]->columnName)){
+                    dest->referedBy.erase(dest->referedBy.begin()+j);
+                    break;
+                }
+            }
+        }
+    }
+
     this->tablePool[tableName] = nullptr;
+    this->tablePool.erase(this->tablePool.find(tableName));
     unlink(string(tableName+".tbinfo").c_str());
     unlink(string(tableName+".tbdata").c_str());
+
+    cout << "Dropped table " << tableName << ".\n";
 }
 
 void DatabaseManager::descTable(string tableName){
@@ -197,6 +243,14 @@ bool DatabaseManager::addIndex(string tableName, string colName, int mode){
     }
 
     shared_ptr<BPlusTree> bt = make_shared<BPlusTree>(tableName, colName, ci->columnType);
+    
+    data_ptr ptr = ti->dataFile->firstData();
+    while (ptr != nullptr){
+        data_ptr raw = ti->cvt->getRawData(colName);
+        bt->insert(raw, ti->dataFile->getCurrentRID().toInt());
+        ptr = ti->dataFile->nextData();
+    }
+
     ci->indexTree = bt;
     return true;
 }

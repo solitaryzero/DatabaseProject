@@ -207,12 +207,12 @@ int RecordConverter::getInt(int colIndex){
 
 void RecordConverter::setInt(string colName, int dat){
     assert(this->tinfo->colInfoMapping[colName]->columnType == varTypes::INT_TYPE);
-    *(int*)(this->values[this->tinfo->colIndex[colName]]->data()) = dat;
+    this->values[this->tinfo->colIndex[colName]] = DataContainer::genIntData(dat);
 }
 
 void RecordConverter::setInt(int colIndex, int dat){
     assert(this->tinfo->colInfos[colIndex]->columnType == varTypes::INT_TYPE);
-    *(int*)(this->values[colIndex]->data()) = dat;
+    this->values[colIndex] = DataContainer::genIntData(dat);
 }
 
 float RecordConverter::getFloat(string colName){
@@ -227,12 +227,12 @@ float RecordConverter::getFloat(int colIndex){
 
 void RecordConverter::setFloat(string colName, float dat){
     assert(this->tinfo->colInfoMapping[colName]->columnType == varTypes::FLOAT_TYPE);
-    *(float*)(this->values[this->tinfo->colIndex[colName]]->data()) = dat;
+    this->values[this->tinfo->colIndex[colName]] = DataContainer::genFloatData(dat);
 }
 
 void RecordConverter::setFloat(int colIndex, float dat){
     assert(this->tinfo->colInfos[colIndex]->columnType == varTypes::FLOAT_TYPE);
-    *(float*)(this->values[colIndex]->data()) = dat;
+    this->values[colIndex] = DataContainer::genFloatData(dat);
 }
 
 string RecordConverter::getChar(string colName, bool strip){
@@ -264,6 +264,60 @@ void RecordConverter::setChar(int colIndex, string dat, bool padding){
     this->values[colIndex] = val;
 }
 
+decimal RecordConverter::getDecimal(string colName){
+    assert(this->tinfo->colInfoMapping[colName]->columnType == varTypes::DECIMAL_TYPE);
+    decimal res;
+    res.integer = *(int*)(this->values[this->tinfo->colIndex[colName]]->data());
+    res.remainder = *(int*)(this->values[this->tinfo->colIndex[colName]]->data()+sizeof(int));
+    return res;
+}
+
+decimal RecordConverter::getDecimal(int colIndex){
+    assert(this->tinfo->colInfos[colIndex]->columnType == varTypes::DECIMAL_TYPE);
+    decimal res;
+    res.integer = *(int*)(this->values[colIndex]->data());
+    res.remainder = *(int*)(this->values[colIndex]->data()+sizeof(int));
+    return res;
+}
+
+void RecordConverter::setDecimal(string colName, decimal dat){
+    assert(this->tinfo->colInfoMapping[colName]->columnType == varTypes::DECIMAL_TYPE);
+    this->values[this->tinfo->colIndex[colName]] = DataContainer::genDecimalData(dat.integer, dat.remainder);
+}
+
+void RecordConverter::setDecimal(int colIndex, decimal dat){
+    assert(this->tinfo->colInfos[colIndex]->columnType == varTypes::DECIMAL_TYPE);
+    this->values[colIndex] = DataContainer::genDecimalData(dat.integer, dat.remainder);
+}
+
+date RecordConverter::getDate(string colName){
+    assert(this->tinfo->colInfoMapping[colName]->columnType == varTypes::DATE_TYPE);
+    date res;
+    res.year = *(int*)(this->values[this->tinfo->colIndex[colName]]->data());
+    res.month = *(int*)(this->values[this->tinfo->colIndex[colName]]->data()+sizeof(int));
+    res.day = *(int*)(this->values[this->tinfo->colIndex[colName]]->data()+sizeof(int)*2);
+    return res;
+}
+
+date RecordConverter::getDate(int colIndex){
+    assert(this->tinfo->colInfos[colIndex]->columnType == varTypes::DATE_TYPE);
+    date res;
+    res.year = *(int*)(this->values[colIndex]->data());
+    res.month = *(int*)(this->values[colIndex]->data()+sizeof(int));
+    res.day = *(int*)(this->values[colIndex]->data()+sizeof(int)*2);
+    return res;
+}
+
+void RecordConverter::setDate(string colName, date dat){
+    assert(this->tinfo->colInfoMapping[colName]->columnType == varTypes::DATE_TYPE);
+    this->values[this->tinfo->colIndex[colName]] = DataContainer::genDateData(dat.year, dat.month, dat.day);
+}
+
+void RecordConverter::setDate(int colIndex, date dat){
+    assert(this->tinfo->colInfos[colIndex]->columnType == varTypes::DATE_TYPE);
+    this->values[colIndex] = DataContainer::genDateData(dat.year, dat.month, dat.day);
+}
+
 void RecordConverter::setNull(string colName){
     setNull(this->tinfo->colIndex[colName]);
 }
@@ -288,6 +342,8 @@ void RecordConverter::showValues(){
             continue;
         }
 
+        date d;
+        decimal dd;
         switch(this->tinfo->colInfos[i]->columnType){
             case varTypes::INT_TYPE:
                 cout << this->getInt(i) << "\n";
@@ -300,6 +356,14 @@ void RecordConverter::showValues(){
                 break;
             case varTypes::VARCHAR_TYPE:
                 cout << "\"" << this->getChar(i, true) << "\"\n";
+                break;
+            case varTypes::DATE_TYPE:
+                d = this->getDate(i);
+                cout << d.year << '-' << d.month << '-' << d.day << '\n';
+                break;
+            case varTypes::DECIMAL_TYPE:
+                dd = this->getDecimal(i);
+                cout << dd.integer << '.' << dd.remainder << '\n';
                 break;
             default:
                 cout << "unhandled data type\n";
