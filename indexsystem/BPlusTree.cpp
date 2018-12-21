@@ -161,6 +161,12 @@ int BPlusTree::greaterCount(data_ptr key){
     return this->getGreaterCountIn(this->treeFile->header->rootPageId, key);
 }
 
+BPlusTreeIterator BPlusTree::begin(){
+    BPlusTreeIterator bit(this);
+    bit.setToBegin();
+    return bit;
+}
+
 BPlusTreeIterator BPlusTree::lowerBound(data_ptr key){
     return this->getLowerBound(this->treeFile->header->rootPageId, key);
 }

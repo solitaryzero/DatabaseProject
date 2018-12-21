@@ -2,7 +2,8 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "Statement.h"
+#include "SystemStatement.h"
+#include "CrudStatement.h"
 #include "DatabaseManager.h"
 #include "Glue.h"
 using namespace std;
@@ -26,6 +27,17 @@ using namespace std;
     vector<Field>* fieldList;
     vector<string>* colNameList;
     Type* type;
+    Value* value;
+    ValueList* valueList;
+    vector<ValueList>* valueLists;
+    WhereClause* whereClause;
+    vector<WhereClause>* whereClauses;
+    SetClause* setClause;
+    vector<string>* tableList;
+    Selector* selector;
+    Column* col;
+    Expr* expr;
+    WhereOperands op;
 }
 
 %token <data> IDENTIFIER;
@@ -39,6 +51,17 @@ using namespace std;
 %type <fieldList> fieldList
 %type <type> type
 %type <colNameList> colNames
+%type <value> value
+%type <valueList> valueList
+%type <valueLists> valueLists
+%type <whereClause> whereClause
+%type <whereClauses> whereClauses
+%type <setClause> setClause
+%type <tableList> tableList
+%type <selector> selector
+%type <col> col
+%type <expr> expr
+%type <op> op
 
 %%
 
@@ -49,6 +72,7 @@ program         : /* empty */
                 | program stmt 
                     {
                         $2->run(dbm);
+                        delete $2;
                     }
                 ;
 
@@ -108,19 +132,24 @@ tbStmt          : CREATE TABLE tbName '(' fieldList ')'
                     }
                 | INSERT INTO tbName VALUES valueLists
                     {
-                        $$ = new EmptyStatement();
+                        $$ = new InsertStatement($3, $5);
                     }
                 | DELETE FROM tbName WHERE whereClauses
                     {
-                        $$ = new EmptyStatement();
+                        $$ = new DeleteStatement($3, $5);
                     }
                 | UPDATE tbName SET setClause WHERE whereClauses
                     {
-                        $$ = new EmptyStatement();
+                        $$ = new UpdateStatement($2, $4, $6);
                     }
                 | SELECT selector FROM tableList WHERE whereClauses
                     {
-                        $$ = new EmptyStatement();
+                        $$ = new SelectStatement($2, $4, $6);
+                    }
+                | SELECT selector FROM tableList
+                    {   
+                        vector<WhereClause> *wcs = new vector<WhereClause>();
+                        $$ = new SelectStatement($2, $4, wcs);
                     }
                 ;
 
@@ -200,103 +229,117 @@ type            : INT '(' VALUE_INT ')'
     
 valueLists      : '(' valueList ')'
                     {
-
+                        $$ = new vector<ValueList>;
+                        $$->push_back(*$2);
+                        delete $2;
                     }
                 | valueLists ',' '(' valueList ')'
                     {
-
+                        $1->push_back(*$4);
+                        $$ = $1;
+                        delete $4;
                     }
                 ;
 
 valueList       : value
                     {
-
+                        $$ = new ValueList();
+                        $$->values.clear();
+                        $$->values.push_back(*$1);
+                        delete $1;
                     }
                 | valueList ',' value
                     {
-
+                        $1->values.push_back(*$3);
+                        $$ = $1;
+                        delete $3;
                     }
                 ;
                 
 value           : VALUE_INT
                     {
-                        
+                        $$ = new IntValue($1);
                     }
                 | VALUE_STRING
                     {
-                        
+                        $$ = new StringValue($1);
                     }
                 | VALUE_FLOAT
                     {
-                        
+                        $$ = new FloatValue($1);
                     }
                 | MYNULL
                     {
-
+                        $$ = new NullValue();
                     }
                 ;
 
 whereClauses    : whereClause
                     {
-
+                        $$ = new vector<WhereClause>();
+                        $$->push_back(*$1);
+                        delete $1;
                     }
-                | whereClause AND whereClause
+                | whereClauses AND whereClause
                     {
-
+                        $$ = $1;
+                        $$->push_back(*$3);
+                        delete $3;
                     }
-                | whereClause OR whereClause
+                | whereClauses OR whereClause
                     {
-                        
+                        /* pass */
+                        $$ = $1;
                     }
                 ; 
 
 whereClause     : col op expr
                     {
-
+                        $$ = new WhereClause($1, $2, $3);
                     }
                 | col IS NOT MYNULL
                     {
-
+                        $$ = new WhereClause($1, WHERE_OP_NOTNULL);
                     }
                 | col IS MYNULL
                     {
-
+                        $$ = new WhereClause($1, WHERE_OP_ISNULL);
                     }
                 ;
 
 col             : tbName '.' colName
                     {
-
+                        $$ = new Column($1, $3);
                     }
                 | colName
                     {
-
+                        $$ = new Column($1);
                     }
                 ;
 
 op              : OP_EQ
                     {
-
+                        $$ = WHERE_OP_EQ;
                     }
                 | OP_NE
                     {
-
+                        $$ = WHERE_OP_NE;
                     }
                 | OP_GE
                     {
-
+                        $$ = WHERE_OP_GE;
                     }
                 | OP_LE
                     {
-
+                        $$ = WHERE_OP_LE;
                     }
                 | OP_GT
                     {
-
+                        $$ = WHERE_OP_GT;
                     }
                 | OP_LT
                     {
-
+                        $$ = WHERE_OP_LT;
                     }
                 ;
 
@@ -379,7 +422,7 @@ colName         : IDENTIFIER
                     }
                 | DATE
                     {
-                        printf("[Warning] keyword date used as column name!\n");
+                        printf("[Warning] Keyword date used as column name!\n");
                         $$ = new string("date");
                     }
                 ;

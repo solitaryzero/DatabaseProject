@@ -79,7 +79,7 @@ void DatabaseManager::switchDatabase(string dbName){
 void DatabaseManager::createDatabase(string dbName){
     string fullPath = this->pathBase+"/"+dbName;
     if (access(fullPath.c_str(), F_OK) == 0){
-        cout << "database " << dbName << " already exists!\n";
+        cout << "[Error] Database " << dbName << " already exists!\n";
         return;
     }
 
@@ -89,7 +89,7 @@ void DatabaseManager::createDatabase(string dbName){
 void DatabaseManager::dropDatabase(string dbName){
     string fullPath = this->pathBase+"/"+dbName;
     if (access(fullPath.c_str(), F_OK) != 0){
-        cout << "database" << dbName << "doesn't exist!\n";
+        cout << "[Error] Database" << dbName << "doesn't exist!\n";
         return;
     }
 
@@ -101,7 +101,7 @@ void DatabaseManager::dropDatabase(string dbName){
 
 void DatabaseManager::showTables(){
     if (this->databaseName == ""){
-        cout << "Not using any database!\n";
+        cout << "[Error] Not using any database!\n";
         return;
     }
 
@@ -124,11 +124,11 @@ void DatabaseManager::showTables(){
 
 shared_ptr<TableInfo> DatabaseManager::createTable(string tableName){
     if (this->databaseName == ""){
-        cout << "Not using any database now!\n";
+        cout << "[Error] Not using any database!\n";
         return nullptr;
     }
     if (this->tablePool.find(tableName) != this->tablePool.end()){
-        cout << "Table " << tableName << " already exists!\n";
+        cout << "[Error] Table " << tableName << " already exists!\n";
         return nullptr;
     }
 
@@ -141,7 +141,7 @@ shared_ptr<TableInfo> DatabaseManager::createTable(string tableName){
 
 shared_ptr<TableInfo> DatabaseManager::createTable(string tableName, vector<pair<string, varTypes>> cols, vector<int> sizes){
     if (this->tablePool.find(tableName) != this->tablePool.end()){
-        cout << "Table " << tableName << " already exists!\n";
+        cout << "[Error] Table " << tableName << " already exists!\n";
         return nullptr;
     }
     shared_ptr<TableInfo> tif = createTable(tableName);
@@ -172,7 +172,7 @@ shared_ptr<TableInfo> DatabaseManager::openTable(string tableName){
 
 void DatabaseManager::dropTable(string tableName){
     if (this->tablePool.find(tableName) == this->tablePool.end()){
-        cout << "Table " << tableName << " doesn't exist!\n";
+        cout << "[Error] Table " << tableName << " doesn't exist!\n";
         return;
     }
 
@@ -180,7 +180,7 @@ void DatabaseManager::dropTable(string tableName){
     //check if used as foreign key
     for (int i=0;i<ti->colNumbers;i++){
         if (ti->colInfos[i]->referedBy.size() > 0){
-            cout << "Column " << ti->colInfos[i]->columnName << " refered by (" 
+            cout << "[Error] Column " << ti->colInfos[i]->columnName << " refered by (" 
             << ti->colInfos[i]->referedBy[0].first << "." << ti->colInfos[i]->referedBy[0].second << "), abort.\n";
             return;
         }
@@ -209,12 +209,12 @@ void DatabaseManager::dropTable(string tableName){
     unlink(string(tableName+".tbinfo").c_str());
     unlink(string(tableName+".tbdata").c_str());
 
-    cout << "Dropped table " << tableName << ".\n";
+    cout << "[Info] Dropped table " << tableName << ".\n";
 }
 
 void DatabaseManager::descTable(string tableName){
     if (this->tablePool.find(tableName) == this->tablePool.end()){
-        cout << "Table " << tableName << " doesn't exist!\n";
+        cout << "[Error] Table " << tableName << " doesn't exist!\n";
         return;
     }
     this->tablePool[tableName]->showTableInfo();
@@ -226,19 +226,19 @@ void DatabaseManager::openDataFile(shared_ptr<TableInfo> p){
 
 bool DatabaseManager::addIndex(string tableName, string colName, int mode){
     if (this->tablePool.find(tableName) == this->tablePool.end()){
-        cout << "Table " << tableName << " not found!\n";
+        cout << "[Error] Table " << tableName << " not found!\n";
         return false;
     }
     shared_ptr<TableInfo> ti = this->tablePool[tableName];
 
-    if (ti->colInfoMapping.find(tableName) == ti->colInfoMapping.end()){
-        cout << "Column " << colName << " not found!\n";
+    if (ti->colInfoMapping.find(colName) == ti->colInfoMapping.end()){
+        cout << "[Error] Column " << colName << " not found!\n";
         return false;
     }
     shared_ptr<ColumnInfo> ci = ti->colInfoMapping[colName];
     
     if (ci->indexTree != nullptr){
-        cout << "Index already exists!\n";
+        cout << "[Info] Index already exists!\n";
         return false;
     }
 
@@ -252,28 +252,35 @@ bool DatabaseManager::addIndex(string tableName, string colName, int mode){
     }
 
     ci->indexTree = bt;
+    ci->useIndex = mode;
     return true;
 }
 
 bool DatabaseManager::dropIndex(string tableName, string colName){
     if (this->tablePool.find(tableName) == this->tablePool.end()){
-        cout << "Table " << tableName << " not found!\n";
+        cout << "[Error] Table " << tableName << " not found!\n";
         return false;
     }
     shared_ptr<TableInfo> ti = this->tablePool[tableName];
 
     if (ti->colInfoMapping.find(tableName) == ti->colInfoMapping.end()){
-        cout << "Column " << colName << " not found!\n";
+        cout << "[Error] Column " << colName << " not found!\n";
         return false;
     }
     shared_ptr<ColumnInfo> ci = ti->colInfoMapping[colName];
 
     if (ci->indexTree == nullptr){
-        cout << "Index doesn't exist!\n";
+        cout << "[Error] Index doesn't exist!\n";
+        return false;
+    }
+
+    if (ci->isPrimary || ci->hasForeign){
+        cout << "[Error] Cannot remove index on primary or foreign key!\n";
         return false;
     }
 
     ci->indexTree->deleteIndex();
     ci->indexTree = nullptr;
+    ci->useIndex = 0;
     return true;
 }

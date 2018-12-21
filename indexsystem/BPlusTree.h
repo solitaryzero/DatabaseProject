@@ -21,6 +21,7 @@ public:
     int count(data_ptr key);
     int lesserCount(data_ptr key);
     int greaterCount(data_ptr key);
+    BPlusTreeIterator begin();
     BPlusTreeIterator lowerBound(data_ptr key);
     BPlusTreeIterator upperBound(data_ptr key);
     vector<RID> getRIDs(data_ptr key);

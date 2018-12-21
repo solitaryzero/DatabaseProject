@@ -2,9 +2,10 @@
 #include "./databasesystem/Glue.h"
 
 int main(){
-    system("mkdir data");
-    system("rm -r ./data/*");
+    if (system("mkdir data") == -1) return -1;
+    if (system("rm -r ./data/*") == -1) return -1;
     dbm = new DatabaseManager();
     parseSQL("../test.sql");
-    delete(dbm);
+    delete dbm;
+    return 0;
 }

@@ -48,6 +48,11 @@ enum class varTypes {
     DECIMAL_TYPE
 };
 
+enum class ExprType{
+    COL_EXPR,
+    VALUE_EXPR
+};
+
 class date{
 public:
     int year;
