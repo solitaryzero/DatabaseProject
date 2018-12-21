@@ -53,6 +53,11 @@ enum class ExprType{
     VALUE_EXPR
 };
 
+enum class SelectorType{
+    WILD_SELECTOR,
+    COL_SELECTOR
+};
+
 class date{
 public:
     int year;

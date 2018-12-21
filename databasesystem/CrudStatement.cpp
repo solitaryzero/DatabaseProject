@@ -41,9 +41,10 @@ void InsertStatement::run(DatabaseManager *db){
             }
 
             Value v = this->vList[i].values[j];
+            auto cif = tif->colInfos[j];
             if (v.type == varTypes::UNKNOWN_TYPE){
                 assert(v.data == nullptr);
-                if (!tif->colInfos[i]->allowNull){
+                if (!cif->allowNull){
                     cout << "[Error] Trying to insert null into a not nullable column for valueList No." << i << "\n";
                     flag = false;
                     break;
@@ -51,61 +52,34 @@ void InsertStatement::run(DatabaseManager *db){
                 indexValueMap[j] = nullptr;
             }
 
-            varTypes ctype = tif->colInfos[i]->columnType;
-        
-            data_ptr p;
-            switch (ctype)
-            {
-                case varTypes::INT_TYPE:
-                    assert(v.type == varTypes::INT_TYPE);
-                    indexValueMap[j] = v.data;
-                    break;
-
-                case varTypes::FLOAT_TYPE:
-                    assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE));
-                    if (v.type == varTypes::FLOAT_TYPE){
-                        indexValueMap[j] = v.data;
-                    } else {
-                        indexValueMap[j] = Value::intToFloat(v);
-                    }
-                    break;
-
-                case varTypes::CHAR_TYPE:
-                    assert(v.type == varTypes::CHAR_TYPE);
-                    indexValueMap[j] = v.data;
-                    break;
-                
-                case varTypes::VARCHAR_TYPE:
-                    assert(v.type == varTypes::CHAR_TYPE);
-                    indexValueMap[j] = v.data;
-                    break;
-
-                case varTypes::DATE_TYPE:
-                    assert(v.type == varTypes::CHAR_TYPE);
-                    p = Value::stringToDate(v);
-                    if (p == nullptr){
-                        cout << "[Error] Bad date format\n";
-                        flag = false;
-                    } else {
-                        indexValueMap[j] = p;
-                    }
-                    break;
-
-                case varTypes::DECIMAL_TYPE:
-                    assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE));
-                    if (v.type == varTypes::INT_TYPE){
-                        p = Value::intToDecimal(v);
-                    } else {
-                        p = Value::floatToDecimal(v);
-                    }
-                    
-                    indexValueMap[j] = p;
-                    break;
-            
-                default:
-                    cout << "[Error] Unknown type\n";
+            if (cif->isPrimary){
+                assert(cif->useIndex > 0);
+                assert(cif->indexTree != nullptr);
+                if (cif->indexTree->has(v.data)){
+                    cout << "[Error] Duplicate key " << v.raw << " on primary column " << cif->columnName << "\n";
                     flag = false;
                     break;
+                }
+            }
+
+            varTypes ctype = cif->columnType;
+            if (!CrudHelper::convertible(ctype, v.type)){
+                cout << "[Error] Inconvertible type on column " << cif->columnName << "\n";
+                flag = false;
+                break;
+            }
+            
+            indexValueMap[j] = CrudHelper::convert(ctype, v, flag);
+            if (!flag) break;
+
+            if (cif->hasForeign){
+                auto t = db->tablePool[cif->foreignTableName];
+                auto c = t->colInfoMapping[cif->foreignColumnName];
+                if (!c->indexTree->has(indexValueMap[j])){
+                    cout << "[Error] Failed to solve foreign key constraint on " << cif->columnName << "\n";
+                    flag = false;
+                    break;
+                }
             }
         }
         
@@ -175,20 +149,135 @@ void DeleteStatement::run(DatabaseManager *db){
     CrudHelper::solveForeignKey_delete(db, tif, res);
 }
 
-UpdateStatement::UpdateStatement(string *tableName, SetClause *setClause, vector<WhereClause> *whereClauses){
-
+UpdateStatement::UpdateStatement(string *tableName, vector<SetClause> *setClauses, vector<WhereClause> *whereClauses){
+    this->tbName = *tableName;
+    this->setClauses = *setClauses;
+    this->wcs = *whereClauses;
+    delete tableName;
+    delete setClauses;
+    delete whereClauses;
 }
 
 UpdateStatement::~UpdateStatement(){
-
-}
-
-void UpdateStatement::run(DatabaseManager *db){
     
 }
 
-SelectStatement::SelectStatement(Selector *sel, vector<string> *tableList, vector<WhereClause> *whereClauses){
+void UpdateStatement::run(DatabaseManager *db){
+    if (db->tablePool.find(this->tbName) == db->tablePool.end()){
+        cout << "[Error] Table " << this->tbName << " doesn't exist!\n";
+        return;
+    }
+    auto tif = db->tablePool[this->tbName];
 
+    for (WhereClause wc : this->wcs){
+        if (tif->colInfoMapping.find(wc.col.colName) == tif->colInfoMapping.end()){
+            cout << "[Error] Column " << wc.col.colName << " doesn't exist.\n";
+            return;
+        }
+        varTypes t1 = tif->colInfoMapping[wc.col.colName]->columnType;
+        if (wc.expr.type == ExprType::COL_EXPR){
+            if (tif->colInfoMapping.find(wc.expr.col.colName) == tif->colInfoMapping.end()){
+                cout << "[Error] Column " << wc.expr.col.colName << " doesn't exist.\n";
+                return;
+            }
+            varTypes t2 = tif->colInfoMapping[wc.expr.col.colName]->columnType;
+            if (t1 != t2){
+                cout << "[Error] Column " << wc.col.colName << " and " << wc.expr.col.colName << " have different types.\n";
+                return;
+            }
+        } else {
+            varTypes t2 = wc.expr.val.type;
+            if (t1 != t2){
+                cout << "[Error] Column " << wc.col.colName << " doesn't have type " << DataOperands::typeName(t2) << "\n";
+                return;
+            }
+        }
+    }
+
+    for (SetClause sc : this->setClauses){
+        if (tif->colInfoMapping.find(sc.colName) == tif->colInfoMapping.end()){
+            cout << "[Error] Column " << sc.colName << " doesn't exist.\n";
+            return;
+        }
+        auto cif = tif->colInfoMapping[sc.colName];
+
+        if (cif->isPrimary){
+            cout << "[Error] Cannot update primary key on column " << sc.colName << ".\n";
+            return;
+        }
+
+        if (!CrudHelper::convertible(cif->columnType, sc.v.type)){
+            cout << "[Error] Inconvertible type on column " << cif->columnName << "\n";
+            return;
+        }
+
+        if (cif->hasForeign){
+            auto t = db->tablePool[cif->foreignTableName];
+            auto c = t->colInfoMapping[cif->foreignColumnName];
+            bool flag = true;
+            if (!c->indexTree->has(CrudHelper::convert(cif->columnType, sc.v, flag))){
+                cout << "[Error] Failed to solve foreign key constraint on " << cif->columnName << "\n";
+                return;
+            }
+        }
+    }
+
+    vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
+    vector<data_ptr> oldKeys;
+    vector<data_ptr> newKeys;
+    for (RID r : res){
+        oldKeys.clear();
+        newKeys.clear();
+        data_ptr old = tif->dataFile->getData(r);
+        tif->cvt->fromByteArray(old);
+
+        for (SetClause sc : this->setClauses){
+            auto cif = tif->colInfoMapping[sc.colName];
+            if (cif->useIndex > 0){
+                data_ptr oldKey = tif->cvt->getRawData(sc.colName);
+                bool flag = true;
+                data_ptr newKey = CrudHelper::convert(cif->columnType, sc.v, flag);
+
+                tif->cvt->setRawData(sc.colName, newKey);
+                if (!flag){
+                    cout << "[Error] Update failed on column " << sc.colName << ".\n";
+                    return;
+                }
+
+                oldKeys.push_back(oldKey);
+                newKeys.push_back(newKey);
+            } else {
+                bool flag = true;
+                tif->cvt->setRawData(sc.colName, CrudHelper::convert(cif->columnType, sc.v, flag));
+                if (!flag){
+                    cout << "[Error] Update failed on column " << sc.colName << ".\n";
+                    return;
+                }
+
+                oldKeys.push_back(nullptr);
+                newKeys.push_back(nullptr);
+            }
+        }
+        RID newRID = tif->dataFile->updateData(r, tif->cvt->toByteArray());
+        for (unsigned int i=0;i<oldKeys.size();i++){
+            auto cif = tif->colInfoMapping[this->setClauses[i].colName];
+            if (oldKeys[i] != nullptr){
+                cif->indexTree->remove(oldKeys[i], r.toInt());
+            }
+            if (newKeys[i] != nullptr){
+                cif->indexTree->insert(newKeys[i], newRID.toInt());
+            }
+        }
+    }
+}
+
+SelectStatement::SelectStatement(Selector *sel, vector<string> *tableList, vector<WhereClause> *whereClauses){
+    this->sel = *sel;
+    this->tList = *tableList;
+    this->wcs = *whereClauses;
+    delete sel;
+    delete tableList;
+    delete whereClauses;
 }
 
 SelectStatement::~SelectStatement(){
@@ -197,6 +286,86 @@ SelectStatement::~SelectStatement(){
 
 void SelectStatement::run(DatabaseManager *db){
     
+}
+
+bool CrudHelper::convertible(varTypes to, varTypes from){
+    switch(to){
+        case varTypes::FLOAT_TYPE:
+            return ((from == varTypes::INT_TYPE) || (from == varTypes::FLOAT_TYPE));
+            break;
+        case varTypes::VARCHAR_TYPE:
+            return ((from == varTypes::CHAR_TYPE) || (from == varTypes::VARCHAR_TYPE));
+            break;
+        case varTypes::DATE_TYPE:
+            return ((from == varTypes::DATE_TYPE) || (from == varTypes::CHAR_TYPE));
+            break;
+        case varTypes::DECIMAL_TYPE:
+            return ((from == varTypes::INT_TYPE) || (from == varTypes::FLOAT_TYPE) || (from == varTypes::DECIMAL_TYPE));
+            break;
+        default:
+            return (to == from);
+            break;
+    }
+    return false;
+}
+
+data_ptr CrudHelper::convert(varTypes dest, Value &v, bool &success){
+    switch (dest)
+    {
+        case varTypes::INT_TYPE:
+            assert(v.type == varTypes::INT_TYPE);
+            return v.data;
+            break;
+
+        case varTypes::FLOAT_TYPE:
+            assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE));
+            if (v.type == varTypes::FLOAT_TYPE){
+                return v.data;
+            } else {
+                return Value::intToFloat(v);
+            }
+            break;
+
+        case varTypes::CHAR_TYPE:
+            assert(v.type == varTypes::CHAR_TYPE);
+            return v.data;
+            break;
+        
+        case varTypes::VARCHAR_TYPE:
+            assert(v.type == varTypes::CHAR_TYPE);
+            return v.data;
+            break;
+
+        case varTypes::DATE_TYPE:
+        {
+            assert(v.type == varTypes::CHAR_TYPE);
+            data_ptr p = Value::stringToDate(v);
+            if (p == nullptr){
+                cout << "[Error] Bad date format\n";
+                success = false;
+                return nullptr;
+            } else {
+                return p;
+            }
+            break;
+        }
+
+        case varTypes::DECIMAL_TYPE:
+            assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE));
+            if (v.type == varTypes::INT_TYPE){
+                return Value::intToDecimal(v);
+            } else {
+                return Value::floatToDecimal(v);
+            }
+            
+            break;
+    
+        default:
+            cout << "[Error] Unknown type\n";
+            success = false;
+            return nullptr;
+            break;
+    }
 }
 
 bool CrudHelper::checkCondition(shared_ptr<RecordConverter> cvt, data_ptr data, const WhereClause &wc){

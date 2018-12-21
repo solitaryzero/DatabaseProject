@@ -104,6 +104,8 @@ public:
     Value val;
 
     Expr();
+    Expr(Column *col);
+    Expr(Value *val);
     Expr(ExprType type, Column *col, Value *val);
 };
 
@@ -118,11 +120,17 @@ public:
 };
 
 class SetClause{
+public:
+    string colName;
+    Value v;
 
+    SetClause(string *colName, Value *v);
 };
 
 class Selector{
-
+public:
+    SelectorType type;
+    vector<Column> cols;
 };
 
 class IntValue : public Value{
@@ -143,6 +151,16 @@ public:
 class NullValue : public Value{
 public:
     NullValue();
+};
+
+class WildSelector : public Selector{
+public:
+    WildSelector();
+};
+
+class ColumnSelector : public Selector{
+public:
+    ColumnSelector(vector<Column> *cols);
 };
 
 #endif

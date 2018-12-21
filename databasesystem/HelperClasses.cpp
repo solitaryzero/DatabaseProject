@@ -88,6 +88,20 @@ Expr::Expr(){
     this->val = NullValue();
 }
 
+Expr::Expr(Column *col){
+    this->type = ExprType::COL_EXPR;
+    this->col = *col;
+    this->val = NullValue();
+    delete col;
+}
+
+Expr::Expr(Value *val){
+    this->type = ExprType::VALUE_EXPR;
+    this->col = Column();
+    this->val = *val;
+    delete val;
+}
+
 Expr::Expr(ExprType type, Column *col, Value *val){
     this->type = type;
     this->col = *col;
@@ -109,4 +123,22 @@ WhereClause::WhereClause(Column *col, WhereOperands op, Expr* expr){
     this->expr = *expr;
     delete col;
     delete expr;
+}
+
+SetClause::SetClause(string *colName, Value *v){
+    this->colName = *colName;
+    this->v = *v;
+
+    delete colName;
+    delete v;
+}
+
+WildSelector::WildSelector(){
+    this->type = SelectorType::WILD_SELECTOR;
+}
+
+ColumnSelector::ColumnSelector(vector<Column> *cols){
+    this->type = SelectorType::COL_SELECTOR;
+    this->cols = *cols;
+    delete cols;
 }

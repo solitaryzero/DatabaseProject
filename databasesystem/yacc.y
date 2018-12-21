@@ -32,12 +32,13 @@ using namespace std;
     vector<ValueList>* valueLists;
     WhereClause* whereClause;
     vector<WhereClause>* whereClauses;
-    SetClause* setClause;
+    vector<SetClause>* setClause;
     vector<string>* tableList;
     Selector* selector;
     Column* col;
     Expr* expr;
     WhereOperands op;
+    vector<Column>* colSelector;
 }
 
 %token <data> IDENTIFIER;
@@ -62,6 +63,7 @@ using namespace std;
 %type <col> col
 %type <expr> expr
 %type <op> op
+%type <colSelector> colSelector
 
 %%
 
@@ -345,51 +347,61 @@ op              : OP_EQ
 
 expr            : value
                     {
-
+                        $$ = new Expr($1);
                     }
                 | col
-                    {
-
+                    {  
+                        $$ = new Expr($1);
                     }
                 ;
 
 setClause       : colName OP_EQ value
                     {
-
+                        $$ = new vector<SetClause>();
+                        $$->push_back(SetClause($1, $3));
                     }
                 | setClause ',' colName OP_EQ value
                     {
-
+                        $$ = $1;
+                        $$->push_back(SetClause($3, $5));
                     }
                 ;
 
 selector        : '*'
                     {
-
+                        $$ = new WildSelector();
                     }
                 | colSelector
                     {
-
+                        $$ = new ColumnSelector($1);
                     }
                 ;
 
 colSelector     : col
                     {
-
+                        $$ = new vector<Column>();
+                        $$->push_back(*$1);
+                        delete $1;
                     }
                 | colSelector ',' col
                     {
-
+                        $$ = $1;
+                        $$->push_back(*$3);
+                        delete $3;
                     }
                 ;
 
 tableList       : tbName
                     {
-
+                        $$ = new vector<string>();
+                        $$->push_back(*$1);
+                        delete $1;
                     }
                 | tableList ',' tbName
                     {
-
+                        $$ = $1;
+                        $$->push_back(*$3);
+                        delete $3;
                     }
 
 dbName          : IDENTIFIER

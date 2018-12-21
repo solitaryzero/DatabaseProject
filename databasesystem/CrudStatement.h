@@ -25,13 +25,21 @@ public:
 
 class UpdateStatement : public Statement{
 public:
-    UpdateStatement(string *tableName, SetClause *setClause, vector<WhereClause> *whereClauses);
+    string tbName;
+    vector<SetClause> setClauses;
+    vector<WhereClause> wcs;
+
+    UpdateStatement(string *tableName, vector<SetClause> *setClauses, vector<WhereClause> *whereClauses);
     ~UpdateStatement();
     void run(DatabaseManager *db);
 };
 
 class SelectStatement : public Statement{
 public:
+    Selector sel;
+    vector<string> tList;
+    vector<WhereClause> wcs;
+
     SelectStatement(Selector *sel, vector<string> *tableList, vector<WhereClause> *whereClauses);
     ~SelectStatement();
     void run(DatabaseManager *db);
@@ -39,6 +47,8 @@ public:
 
 class CrudHelper{
 public:
+    static bool convertible(varTypes to, varTypes from);
+    static data_ptr convert(varTypes dest, Value &v, bool &success);
     static const int failed = 1e9;
     static int getCount(shared_ptr<TableInfo> tif, const WhereClause &wc);
     static vector<RID> getRIDsFrom(shared_ptr<TableInfo> tif, const vector<WhereClause> &wcs);
