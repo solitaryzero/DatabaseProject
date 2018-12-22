@@ -138,8 +138,8 @@ void DeleteStatement::run(DatabaseManager *db){
             }
         } else {
             varTypes t2 = wc.expr.val.type;
-            if (t1 != t2){
-                cout << "[Error] Column " << wc.col.colName << " doesn't have type " << DataOperands::typeName(t2) << "\n";
+            if (!CrudHelper::convertible(t1, t2)){
+                cout << "[Error] Column " << wc.col.colName << " cannot be converted from type " << DataOperands::typeName(t2) << "\n";
                 return;
             }
         }
@@ -187,8 +187,8 @@ void UpdateStatement::run(DatabaseManager *db){
             }
         } else {
             varTypes t2 = wc.expr.val.type;
-            if (t1 != t2){
-                cout << "[Error] Column " << wc.col.colName << " doesn't have type " << DataOperands::typeName(t2) << "\n";
+            if (!CrudHelper::convertible(t1, t2)){
+                cout << "[Error] Column " << wc.col.colName << " cannot be converted from type " << DataOperands::typeName(t2) << "\n";
                 return;
             }
         }
@@ -228,8 +228,8 @@ void UpdateStatement::run(DatabaseManager *db){
     for (RID r : res){
         oldKeys.clear();
         newKeys.clear();
-        data_ptr old = tif->dataFile->getData(r);
-        tif->cvt->fromByteArray(old);
+        data_ptr oldData = tif->dataFile->getData(r);
+        tif->cvt->fromByteArray(oldData);
 
         for (SetClause sc : this->setClauses){
             auto cif = tif->colInfoMapping[sc.colName];
@@ -243,9 +243,6 @@ void UpdateStatement::run(DatabaseManager *db){
                     cout << "[Error] Update failed on column " << sc.colName << ".\n";
                     return;
                 }
-
-                oldKeys.push_back(oldKey);
-                newKeys.push_back(newKey);
             } else {
                 bool flag = true;
                 tif->cvt->setRawData(sc.colName, CrudHelper::convert(cif->columnType, sc.v, flag));
@@ -253,21 +250,23 @@ void UpdateStatement::run(DatabaseManager *db){
                     cout << "[Error] Update failed on column " << sc.colName << ".\n";
                     return;
                 }
+            }
+        }
+        data_ptr newData = tif->cvt->toByteArray();
+        RID newRID = tif->dataFile->updateData(r, newData);
+        
+        if (newRID == r) continue;
 
-                oldKeys.push_back(nullptr);
-                newKeys.push_back(nullptr);
-            }
+        for (auto cif : tif->colInfos){
+            if (cif->useIndex == 0) continue;
+            tif->cvt->fromByteArray(oldData);
+            data_ptr oldKey = tif->cvt->getRawData(cif->columnName);
+            tif->cvt->fromByteArray(newData);
+            data_ptr newKey = tif->cvt->getRawData(cif->columnName);
+            cif->indexTree->remove(oldKey, r.toInt());
+            cif->indexTree->insert(newKey, newRID.toInt());
         }
-        RID newRID = tif->dataFile->updateData(r, tif->cvt->toByteArray());
-        for (unsigned int i=0;i<oldKeys.size();i++){
-            auto cif = tif->colInfoMapping[this->setClauses[i].colName];
-            if (oldKeys[i] != nullptr){
-                cif->indexTree->remove(oldKeys[i], r.toInt());
-            }
-            if (newKeys[i] != nullptr){
-                cif->indexTree->insert(newKeys[i], newRID.toInt());
-            }
-        }
+
     }
 }
 
@@ -285,343 +284,104 @@ SelectStatement::~SelectStatement(){
 }
 
 void SelectStatement::run(DatabaseManager *db){
-    
-}
-
-bool CrudHelper::convertible(varTypes to, varTypes from){
-    switch(to){
-        case varTypes::FLOAT_TYPE:
-            return ((from == varTypes::INT_TYPE) || (from == varTypes::FLOAT_TYPE));
-            break;
-        case varTypes::VARCHAR_TYPE:
-            return ((from == varTypes::CHAR_TYPE) || (from == varTypes::VARCHAR_TYPE));
-            break;
-        case varTypes::DATE_TYPE:
-            return ((from == varTypes::DATE_TYPE) || (from == varTypes::CHAR_TYPE));
-            break;
-        case varTypes::DECIMAL_TYPE:
-            return ((from == varTypes::INT_TYPE) || (from == varTypes::FLOAT_TYPE) || (from == varTypes::DECIMAL_TYPE));
-            break;
-        default:
-            return (to == from);
-            break;
-    }
-    return false;
-}
-
-data_ptr CrudHelper::convert(varTypes dest, Value &v, bool &success){
-    switch (dest)
-    {
-        case varTypes::INT_TYPE:
-            assert(v.type == varTypes::INT_TYPE);
-            return v.data;
-            break;
-
-        case varTypes::FLOAT_TYPE:
-            assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE));
-            if (v.type == varTypes::FLOAT_TYPE){
-                return v.data;
-            } else {
-                return Value::intToFloat(v);
-            }
-            break;
-
-        case varTypes::CHAR_TYPE:
-            assert(v.type == varTypes::CHAR_TYPE);
-            return v.data;
-            break;
-        
-        case varTypes::VARCHAR_TYPE:
-            assert(v.type == varTypes::CHAR_TYPE);
-            return v.data;
-            break;
-
-        case varTypes::DATE_TYPE:
-        {
-            assert(v.type == varTypes::CHAR_TYPE);
-            data_ptr p = Value::stringToDate(v);
-            if (p == nullptr){
-                cout << "[Error] Bad date format\n";
-                success = false;
-                return nullptr;
-            } else {
-                return p;
-            }
-            break;
+    //check table name correctness
+    for (unsigned int i=0;i<this->tList.size();i++){
+        if (db->tablePool.find(this->tList[i]) == db->tablePool.end()){
+            cout << "[Error] Table " << this->tList[i] << " doesn't exist.\n";
+            return;
         }
 
-        case varTypes::DECIMAL_TYPE:
-            assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE));
-            if (v.type == varTypes::INT_TYPE){
-                return Value::intToDecimal(v);
-            } else {
-                return Value::floatToDecimal(v);
+        for (unsigned int j=i+1;j<this->tList.size();j++){
+            if (this->tList[i] == this->tList[j]){
+                cout << "[Error] Duplicate table name " << this->tList[i] << ".\n";
+                return;
             }
-            
-            break;
-    
-        default:
-            cout << "[Error] Unknown type\n";
-            success = false;
-            return nullptr;
-            break;
-    }
-}
-
-bool CrudHelper::checkCondition(shared_ptr<RecordConverter> cvt, data_ptr data, const WhereClause &wc){
-    if (wc.col.hasTableName && (wc.col.tableName != cvt->tinfo->tableName)){
-        return false;
+        }
     }
 
-    cvt->fromByteArray(data);
-    data_ptr a,b;
-    varTypes type = cvt->tinfo->colInfoMapping[wc.col.colName]->columnType;
-    a = cvt->getRawData(wc.col.colName);
-    if ((wc.op != WhereOperands::WHERE_OP_ISNULL) && (wc.op != WhereOperands::WHERE_OP_NOTNULL)){
+    //check selector column correctness
+    if (this->sel.type == SelectorType::COL_SELECTOR){
+        for (Column &c : this->sel.cols){
+            bool res = CrudHelper::getTableName(db, c, this->tList);
+            if (!res) return;
+        }
+    }
+
+    //check whereclause column correctness
+    for (WhereClause &wc : this->wcs){
+        bool res = CrudHelper::getTableName(db, wc.col, this->tList);
+        if (!res) return;
+
         if (wc.expr.type == ExprType::COL_EXPR){
-            b = cvt->getRawData(wc.expr.col.colName);
+            res = CrudHelper::getTableName(db, wc.expr.col, this->tList);
+            if (!res) return;
+        }
+    }
+
+    //check whereclause correctness
+    for (WhereClause &wc : this->wcs){
+        auto tif = db->tablePool[wc.col.tableName];
+
+        cout << wc.col.tableName << "\n";
+        assert(tif != nullptr);
+
+        if (tif->colInfoMapping.find(wc.col.colName) == tif->colInfoMapping.end()){
+            cout << "[Error] Column " << wc.col.colName << " doesn't exist.\n";
+            return;
+        }
+        varTypes t1 = tif->colInfoMapping[wc.col.colName]->columnType;
+        if (wc.expr.type == ExprType::COL_EXPR){
+            auto tif2 = db->tablePool[wc.expr.col.colName];
+            if (tif2->colInfoMapping.find(wc.expr.col.colName) == tif2->colInfoMapping.end()){
+                cout << "[Error] Column " << wc.expr.col.colName << " doesn't exist.\n";
+                return;
+            }
+            varTypes t2 = tif2->colInfoMapping[wc.expr.col.colName]->columnType;
+            if (t1 != t2){
+                cout << "[Error] Column " << wc.col.colName << " and " << wc.expr.col.colName << " have different types.\n";
+                return;
+            }
         } else {
-            b = wc.expr.val.data;
-        }
-    }
-
-    switch(wc.op){
-        case WhereOperands::WHERE_OP_EQ:
-            if (a == nullptr) return false;
-            if (b == nullptr) return false;
-            return (DataOperands::compare(type, a, b) == 0);
-            break;
-        case WhereOperands::WHERE_OP_NE:
-            if (a == nullptr) return false;
-            if (b == nullptr) return false;
-            return (DataOperands::compare(type, a, b) != 0);
-            break;
-        case WhereOperands::WHERE_OP_GT:
-            if (a == nullptr) return false;
-            if (b == nullptr) return false;
-            return (DataOperands::compare(type, a, b) > 0);
-            break;
-        case WhereOperands::WHERE_OP_LT:
-            if (a == nullptr) return false;
-            if (b == nullptr) return false;
-            return (DataOperands::compare(type, a, b) < 0);
-            break;
-        case WhereOperands::WHERE_OP_GE:
-            if (a == nullptr) return false;
-            if (b == nullptr) return false;
-            return (DataOperands::compare(type, a, b) >= 0);
-            break;
-        case WhereOperands::WHERE_OP_LE:
-            if (a == nullptr) return false;
-            if (b == nullptr) return false;
-            return (DataOperands::compare(type, a, b) <= 0);
-            break;
-        case WhereOperands::WHERE_OP_ISNULL:
-            if (a == nullptr) return true;
-            return false;
-            break;
-        case WhereOperands::WHERE_OP_NOTNULL:
-            if (a == nullptr) return false;
-            return true;
-            break;
-        default:
-            cout << "[Error] Undefined operand\n";
-            return false;
-            break;
-    }
-}
-
-int CrudHelper::getCount(shared_ptr<TableInfo> tif, const WhereClause &wc){
-    if (wc.expr.type == ExprType::COL_EXPR){
-        return CrudHelper::failed;
-    }
-    auto cif = tif->colInfoMapping[wc.col.colName];
-    if (!cif->useIndex){
-        return CrudHelper::failed;
-    }
-
-    auto ind = cif->indexTree;
-    assert(ind != nullptr);
-    switch(wc.op){
-        case WhereOperands::WHERE_OP_EQ:
-            return ind->getRIDs(wc.expr.val.data).size();
-            break;
-        case WhereOperands::WHERE_OP_NE:
-            return ind->totalCount()-ind->getRIDs(wc.expr.val.data).size();
-            break;
-        case WhereOperands::WHERE_OP_GT:
-            return ind->greaterCount(wc.expr.val.data);
-            break;
-        case WhereOperands::WHERE_OP_LT:
-            return ind->lesserCount(wc.expr.val.data);
-            break;
-        case WhereOperands::WHERE_OP_GE:
-            return ind->totalCount()-ind->lesserCount(wc.expr.val.data);
-            break;
-        case WhereOperands::WHERE_OP_LE:
-            return ind->totalCount()-ind->greaterCount(wc.expr.val.data);
-            break;
-        default:
-            return CrudHelper::failed;
-            break;
-    }
-    return CrudHelper::failed;
-}
-
-vector<RID> CrudHelper::getRIDsFrom(shared_ptr<TableInfo> tif, const vector<WhereClause> &wcs){
-    vector<RID> res;
-    if (wcs.size() == 0){
-        auto it = tif->dataFile->firstData();
-        while (it != nullptr){
-            res.push_back(tif->dataFile->getCurrentRID());
-            it = tif->dataFile->nextData();
-        }
-        return res;
-    }
-
-    int minCount = CrudHelper::failed;
-    unsigned int pos = 0;
-    for (unsigned int i=0;i<wcs.size();i++){
-        int c = CrudHelper::getCount(tif, wcs[i]);
-        if (c < minCount){
-            minCount = c;
-            pos = i;
-        }
-    }
-
-    vector<RID> _res = CrudHelper::getRIDsFrom(tif, wcs[pos]);
-    assert((minCount == CrudHelper::failed) || ((unsigned int)minCount == res.size()));
-    for (RID r : _res){
-        bool flag = true;
-        for (unsigned int i=0;i<wcs.size();i++){
-            if (i == pos) continue;
-            data_ptr p = tif->dataFile->getData(r);
-            if (!CrudHelper::checkCondition(tif->cvt, p, wcs[i])){
-                flag = false;
-                break;
+            varTypes t2 = wc.expr.val.type;
+            if (t1 != t2){
+                cout << "[Error] Column " << wc.col.colName << " doesn't have type " << DataOperands::typeName(t2) << "\n";
+                return;
             }
         }
-        if (flag){
-            res.push_back(r);
-        }
     }
 
-    return res;
-}
+    //TODO: implement cross-table query
+    auto tif = db->tablePool[this->tList[0]];
+    vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
 
-vector<RID> CrudHelper::getRIDsFrom(shared_ptr<TableInfo> tif, const WhereClause &wc){
-    auto cif = tif->colInfoMapping[wc.col.colName];
-    vector<RID> res;
-    if ((!cif->useIndex) || (wc.expr.type == ExprType::COL_EXPR)){
-        data_ptr it = tif->dataFile->firstData();
-        while (it != nullptr){
-            if (CrudHelper::checkCondition(tif->cvt, it, wc)){
-                res.push_back(tif->dataFile->getCurrentRID());
-            }
-            it = tif->dataFile->nextData();
-        }
-        return res;
-    }
-
-    auto ind = cif->indexTree;
-    switch (wc.op){
-        case WhereOperands::WHERE_OP_EQ:
-            return ind->getRIDs(wc.expr.val.data);
-            break;
-        case WhereOperands::WHERE_OP_NE:
-            {
-                BPlusTreeIterator bit = ind->begin();
-                while (bit.available() && (DataOperands::compare(cif->columnType, bit.getKey(), wc.expr.val.data) < 0)){
-                    res.push_back(RID(bit.getValue()));
-                    bit.next();
-                }
-
-                bit = ind->upperBound(wc.expr.val.data);
-                while (bit.available()){
-                    res.push_back(RID(bit.getValue()));
-                    bit.next();
-                }
-
-                return res;
-            }
-            break;
-        case WhereOperands::WHERE_OP_GT:
-            {
-                BPlusTreeIterator bit = ind->upperBound(wc.expr.val.data);
-
-                while (bit.available()){
-                    res.push_back(RID(bit.getValue()));
-                    bit.next();
-                }
-
-                return res;
-            }
-            break;
-        case WhereOperands::WHERE_OP_LT:
-            {
-                BPlusTreeIterator bit = ind->begin();
-                while (bit.available() && (DataOperands::compare(cif->columnType, bit.getKey(), wc.expr.val.data) < 0)){
-                    res.push_back(RID(bit.getValue()));
-                    bit.next();
-                }
-
-                return res;
-            }
-            break;
-        case WhereOperands::WHERE_OP_GE:
-            {
-                BPlusTreeIterator bit = ind->lowerBound(wc.expr.val.data);
-
-                while (bit.available()){
-                    res.push_back(RID(bit.getValue()));
-                    bit.next();
-                }
-
-                return res;
-            }
-            break;
-        case WhereOperands::WHERE_OP_LE:
-            {
-                BPlusTreeIterator bit = ind->begin();
-                while (bit.available() && (DataOperands::compare(cif->columnType, bit.getKey(), wc.expr.val.data) <= 0)){
-                    res.push_back(RID(bit.getValue()));
-                    bit.next();
-                }
-
-                return res;
-            }
-            break;
-        default:
-            return res;
-            break;
-    }
-    return res;
-}
-
-void CrudHelper::solveForeignKey_delete(DatabaseManager *db, shared_ptr<TableInfo> tif, const vector<RID> &rids){
-    for (RID r : rids){
-        data_ptr dat = tif->dataFile->getData(r);
-        tif->cvt->fromByteArray(dat);
+    if (this->sel.type == SelectorType::WILD_SELECTOR){
         for (int i=0;i<tif->colNumbers;i++){
-            auto cif = tif->colInfos[i];
-            if (cif->referedBy.size() > 0){
-                data_ptr key = tif->cvt->getRawData(i);
-                for (auto c : cif->referedBy){
-                    auto refTable = db->tablePool[c.first];
-                    auto refCol = refTable->colInfoMapping[c.second];
-                    vector<RID> newRes = refCol->indexTree->getRIDs(key);
-                    solveForeignKey_delete(db, refTable, newRes);
-                }
-            }
+            printf("%-12s", tif->colInfos[i]->columnName.c_str());
         }
+        printf("\n");
 
-        tif->dataFile->deleteData(r);
-        for (int i=0;i<tif->colNumbers;i++){
-            auto cif = tif->colInfos[i];
-            if (cif->useIndex){
-                data_ptr key = tif->cvt->getRawData(i);
-                cif->indexTree->remove(key, r.toInt());
+        for (RID r : res){
+            data_ptr d = tif->dataFile->getData(r);
+            tif->cvt->fromByteArray(d);
+            for (int i=0;i<tif->colNumbers;i++){
+                printf("%-12s", DataOperands::toString(tif->colInfos[i]->columnType, tif->cvt->getRawData(i)).c_str());
             }
+            printf("\n");
+        }
+    } else if (this->sel.type == SelectorType::COL_SELECTOR){
+        for (Column &c : this->sel.cols){
+            printf("%-12s", c.colName.c_str());
+        }
+        printf("\n");
+
+        for (RID r : res){
+            data_ptr d = tif->dataFile->getData(r);
+            assert(d != nullptr);
+            tif->cvt->fromByteArray(d);
+            for (Column &c : this->sel.cols){
+                printf("%-12s", DataOperands::toString(tif->colInfoMapping[c.colName]->columnType, tif->cvt->getRawData(c.colName)).c_str());
+            }
+            printf("\n");
         }
     }
 }

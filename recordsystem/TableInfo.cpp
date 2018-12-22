@@ -110,9 +110,9 @@ void TableInfo::showTableInfo(){
     printf("=============\n");
     printf("Table name: %-30s\n", this->tableName.c_str());
     printf("%d columns in total:\n", this->colNumbers);
-    printf("Name            Type            Size            Indexed         AllowNull       Primary\n");
+    printf("Name        Type        Size        Indexed     AllowNull   Primary\n");
     for (int i=0;i<this->colNumbers;i++){
-        printf("%-16s%-16s%-16d%-16d%-16d%-16d\n", this->colInfos[i]->columnName.c_str(), this->colInfos[i]->columnTypeName.c_str(), this->colInfos[i]->size,
+        printf("%-12s%-12s%-12d%-12d%-12d%-12d\n", this->colInfos[i]->columnName.c_str(), this->colInfos[i]->columnTypeName.c_str(), this->colInfos[i]->size,
         this->colInfos[i]->useIndex, this->colInfos[i]->allowNull, this->colInfos[i]->isPrimary);
     }
 

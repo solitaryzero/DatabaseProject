@@ -116,7 +116,6 @@ void RecordConverter::fromIndexValueMap(map<int, data_ptr> vmap){
 void RecordConverter::fromByteArray(data_ptr dat){
     int offset = 2;
     short flen = *((short*)(dat->data()+offset));
-    //printf("flen: %d\nfixedColSize: %d\n", (int)flen, this->tinfo->getFixedLength());
     assert((int)(flen) == this->tinfo->getFixedLength());
     offset += 2;
     for (unsigned int i=0;i<this->values.size();i++){
@@ -160,7 +159,7 @@ void RecordConverter::fromByteArray(data_ptr dat){
                 }
                 this->values[i] = tmp;
             } else {
-                int s = dat->size()-dOff;
+                int s = dat->size()- unfixedDataBase - dOff;
                 data_ptr tmp = DataContainer::genDataContainer(s);
                 if (s != 0){
                     memcpy(tmp->data(), dat->data()+unfixedDataBase+dOff, s);

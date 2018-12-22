@@ -91,6 +91,7 @@ void CreateTableStatement::run(DatabaseManager *db){
     }
     db->createTable(this->tbName, cols, sizes);
     
+    /*
     for (int i=0;i<db->tablePool[this->tbName]->colNumbers;i++){
         shared_ptr<ColumnInfo> ci = db->tablePool[this->tbName]->colInfos[i];
         if (ci->columnType == varTypes::INT_TYPE){
@@ -98,6 +99,7 @@ void CreateTableStatement::run(DatabaseManager *db){
             ci->size = DataOperands::getTypeSize(varTypes::INT_TYPE);
         }
     }
+    */
 
     for (unsigned int i=0;i<this->fieldList.size();i++){
         if (this->fieldList[i].mode == FIELD_NOTNULL){

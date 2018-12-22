@@ -9,7 +9,7 @@ IDENTIFIER              ([A-Za-z][_0-9A-Za-z]*)
 VALUE_INT               [0-9]+
 VALUE_FLOAT             -?[0-9]+\.[0-9]+
 VALUE_STRING            '([^\'\"\r\n]|(\\\')|(\\\"))*'
-VALUE_STRING2           "([^\'\"\r\n]|(\\\')|(\\\"))*"
+VALUE_STRING2           \"([^\'\"\r\n]|(\\\')|(\\\"))*\"
 NEWLINE                 (\n|\r\n|\r)
 WHITESPACE              [ \t]
 

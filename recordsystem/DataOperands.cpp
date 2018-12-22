@@ -142,3 +142,48 @@ int DataOperands::getTypeSize(varTypes t){
             return -1;
     }
 }
+
+string DataOperands::toString(varTypes t, data_ptr p){
+    if (p == nullptr) return "null";
+
+    switch(t){
+        case varTypes::INT_TYPE:
+            return to_string(*(int*)p->data());
+            break;
+        case varTypes::FLOAT_TYPE:
+            return to_string(*(float*)p->data());
+            break;
+        case varTypes::CHAR_TYPE:
+            {
+                string res((char*)(p->data()), p->size());
+                return res;
+            }
+            break;
+        case varTypes::VARCHAR_TYPE:
+            {
+                string res((char*)(p->data()), p->size());
+                return res;
+            }
+            break;
+        case varTypes::DATE_TYPE:
+            {
+                date res;
+                res.year = *(int*)(p->data());
+                res.month = *(int*)(p->data()+sizeof(int));
+                res.day = *(int*)(p->data()+sizeof(int)*2);
+                return to_string(res.year)+"-"+to_string(res.month)+"-"+to_string(res.day);
+            }
+            break;
+        case varTypes::DECIMAL_TYPE:
+            {
+                decimal res;
+                res.integer = *(int*)(p->data());
+                res.remainder = *(int*)(p->data()+sizeof(int));
+                return to_string(res.integer)+"."+to_string(res.remainder);
+            }
+            break;
+        default:
+            return "__undefined";
+            break;
+    }
+}

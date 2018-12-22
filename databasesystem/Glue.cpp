@@ -7,22 +7,24 @@ void yyerror(const char* s){
 }
 
 void parseSQL(string fileName){
-    FILE* in = fopen(fileName.c_str(), "r");
+    string fullPath = dbm->pathBase+"../"+fileName;
+    FILE* in = fopen(fullPath.c_str(), "r");
     parseSQL(in);
 }
 
 void parseSQL(FILE* in){
-
     assert(in);
     yyin = in;
 
     yyrestart(in);
     yyparse();
     fclose(in);
+    in = NULL;
 }
 
 void lexSQL(string fileName){
-    FILE* in = fopen(fileName.c_str(), "r");
+    string fullPath = dbm->pathBase+"../"+fileName;
+    FILE* in = fopen(fullPath.c_str(), "r");
     lexSQL(in);
 }
 

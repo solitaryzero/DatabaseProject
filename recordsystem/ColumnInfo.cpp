@@ -40,7 +40,14 @@ ColumnInfo::ColumnInfo(TableInfo *t, string colName, varTypes colType, int siz, 
     } else {
         this->isFixed = true;
     }
-    this->size = siz;
+
+    if (colType == varTypes::INT_TYPE){
+        this->size = DataOperands::getTypeSize(varTypes::INT_TYPE);
+        this->showLength = siz;
+    } else {
+        this->size = siz;
+    }
+    
     this->useIndex = useIndex;
     if (this->useIndex == 1){
         this->indexTree = make_shared<BPlusTree>(t->tableName, this->columnName, this->columnType);

@@ -791,7 +791,7 @@ BPlusTreeIterator BPlusTree::getLowerBound(int pageID, data_ptr key){
                 if (i == 0) {
                     return BPlusTreeIterator(this);
                 } else {
-                    return BPlusTreeIterator(this, node, i, 0);
+                    return BPlusTreeIterator(this, node, i-1, 0);
                 }
             }
         }
