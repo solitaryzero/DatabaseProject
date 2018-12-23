@@ -3,3 +3,4 @@
 !.gitignore
 /*/*.yy.c
 /*/y.tab.*
+/dataset_small/

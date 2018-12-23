@@ -29,8 +29,10 @@ void InsertStatement::run(DatabaseManager *db){
     }
     
     map<int, data_ptr> indexValueMap;
+    vector<WhereClause> primaryConstraint;
     for (unsigned int i=0;i<this->vList.size();i++){
         indexValueMap.clear();
+        primaryConstraint.clear();
         bool flag = true;
         
         for (unsigned int j=0;j<this->vList[i].values.size();j++){
@@ -52,16 +54,6 @@ void InsertStatement::run(DatabaseManager *db){
                 indexValueMap[j] = nullptr;
             }
 
-            if (cif->isPrimary){
-                assert(cif->useIndex > 0);
-                assert(cif->indexTree != nullptr);
-                if (cif->indexTree->has(v.data)){
-                    cout << "[Error] Duplicate key " << v.raw << " on primary column " << cif->columnName << "\n";
-                    flag = false;
-                    break;
-                }
-            }
-
             varTypes ctype = cif->columnType;
             if (!CrudHelper::convertible(ctype, v.type)){
                 cout << "[Error] Inconvertible type on column " << cif->columnName << "\n";
@@ -69,12 +61,30 @@ void InsertStatement::run(DatabaseManager *db){
                 break;
             }
             
+            if (cif->isPrimary){
+                assert(cif->useIndex > 0);
+                assert(cif->indexTree != nullptr);
+                
+                /*
+                if (cif->indexTree->getRIDs(v.data).size() > 0){
+                    cout << "[Error] Duplicate key on primary column" << cif->columnName << ".\n";
+                    flag = false;
+                }
+                */
+
+                WhereClause cons = CrudHelper::genConstraint(tif->tableName, cif->columnName, v);
+                primaryConstraint.push_back(cons);
+            }
+
             indexValueMap[j] = CrudHelper::convert(ctype, v, flag);
             if (!flag) break;
-
+            
             if (cif->hasForeign){
                 auto t = db->tablePool[cif->foreignTableName];
+                assert(t != nullptr);
                 auto c = t->colInfoMapping[cif->foreignColumnName];
+                assert(c != nullptr);
+                assert(c->indexTree != nullptr);
                 if (!c->indexTree->has(indexValueMap[j])){
                     cout << "[Error] Failed to solve foreign key constraint on " << cif->columnName << "\n";
                     flag = false;
@@ -82,6 +92,26 @@ void InsertStatement::run(DatabaseManager *db){
                 }
             }
         }
+
+        
+        if (primaryConstraint.size() > 0){
+            if (primaryConstraint.size() == 1){
+                auto cif = tif->colInfoMapping[primaryConstraint[0].col.colName];
+                if (cif->indexTree->getRIDs(primaryConstraint[0].expr.val.data).size() > 0){
+                    cout << "[Error] Duplicate key on primary column" << primaryConstraint[0].col.colName << ".\n";
+                    flag = false;
+                }
+            }
+            /*
+            //Warning: significantly slows down the program 
+            //Uncomment this block when needed
+            else if (CrudHelper::getRIDsFrom(tif, primaryConstraint).size() > 0){
+                cout << "[Error] Duplicate key on primary columns.\n";
+                flag = false;
+            }
+            */
+        }
+        
         
         if (flag){
             tif->cvt->fromIndexValueMap(indexValueMap);
@@ -100,6 +130,8 @@ void InsertStatement::run(DatabaseManager *db){
             cout << "[Warning] Error detected in valueList No." << i << ", abort to insert it.\n";
         }
     }
+
+    cout << "[Debug] Inserted " << this->vList.size() << " records.\n";
 }
 
 DeleteStatement::DeleteStatement(string *tableName, vector<WhereClause> *whereClauses){
@@ -147,6 +179,8 @@ void DeleteStatement::run(DatabaseManager *db){
 
     vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
     CrudHelper::solveForeignKey_delete(db, tif, res);
+
+    cout << "[Debug] Deleted " << res.size() << " records.\n";
 }
 
 UpdateStatement::UpdateStatement(string *tableName, vector<SetClause> *setClauses, vector<WhereClause> *whereClauses){
@@ -343,8 +377,8 @@ void SelectStatement::run(DatabaseManager *db){
             }
         } else {
             varTypes t2 = wc.expr.val.type;
-            if (t1 != t2){
-                cout << "[Error] Column " << wc.col.colName << " doesn't have type " << DataOperands::typeName(t2) << "\n";
+            if (!CrudHelper::convertible(t1, t2)){
+                cout << "[Error] Column " << wc.col.colName << " cannot be converted from type " << DataOperands::typeName(t2) << "\n";
                 return;
             }
         }
@@ -353,6 +387,7 @@ void SelectStatement::run(DatabaseManager *db){
     //TODO: implement cross-table query
     auto tif = db->tablePool[this->tList[0]];
     vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
+    cout << "[Info] Selected " << res.size() << " records.\n";
 
     if (this->sel.type == SelectorType::WILD_SELECTOR){
         for (int i=0;i<tif->colNumbers;i++){

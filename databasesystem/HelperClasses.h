@@ -106,6 +106,7 @@ public:
     Expr();
     Expr(Column *col);
     Expr(Value *val);
+    Expr(Value val);
     Expr(ExprType type, Column *col, Value *val);
 };
 

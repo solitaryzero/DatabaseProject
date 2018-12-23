@@ -168,10 +168,14 @@ BPlusTreeIterator BPlusTree::begin(){
 }
 
 BPlusTreeIterator BPlusTree::lowerBound(data_ptr key){
+    if (this->totalCount() == 0) return BPlusTreeIterator(this);
+
     return this->getLowerBound(this->treeFile->header->rootPageId, key);
 }
 
 BPlusTreeIterator BPlusTree::upperBound(data_ptr key){
+    if (this->totalCount() == 0) return BPlusTreeIterator(this);
+
     BPlusTreeIterator it = this->getLowerBound(this->treeFile->header->rootPageId, key);
     if (it.available()){
         it.nextKey();
@@ -182,10 +186,12 @@ BPlusTreeIterator BPlusTree::upperBound(data_ptr key){
 }
 
 vector<RID> BPlusTree::getRIDs(data_ptr key){
-    BPlusTreeIterator lower = this->lowerBound(key);
-    BPlusTreeIterator upper = this->upperBound(key);
     vector<RID> res;
     res.clear();
+    if (this->totalCount() == 0) return res;
+
+    BPlusTreeIterator lower = this->lowerBound(key);
+    BPlusTreeIterator upper = this->upperBound(key);
     if (lower.available()){
         if (DataOperands::compare(this->type, key, lower.getKey()) != 0){
             return res;

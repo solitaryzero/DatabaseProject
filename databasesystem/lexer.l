@@ -6,6 +6,7 @@
 %x blockComment
 
 IDENTIFIER              ([A-Za-z][_0-9A-Za-z]*)
+IDENTIFIER2             `([A-Za-z][_0-9A-Za-z]*)`
 VALUE_INT               [0-9]+
 VALUE_FLOAT             -?[0-9]+\.[0-9]+
 VALUE_STRING            '([^\'\"\r\n]|(\\\')|(\\\"))*'
@@ -90,6 +91,7 @@ WHITESPACE              [ \t]
 {NEWLINE}               { /* pass */ }
 {WHITESPACE}            { /* pass */ }
 {IDENTIFIER}            { yylval.data = new std::string(yytext, yyleng); return IDENTIFIER; }
+{IDENTIFIER2}           { yylval.data = new std::string(yytext+1, yyleng-2); return IDENTIFIER; }
 {VALUE_INT}             { yylval.data = new std::string(yytext, yyleng); return VALUE_INT; }
 {VALUE_FLOAT}           { yylval.data = new std::string(yytext, yyleng); return VALUE_FLOAT; }
 {VALUE_STRING}          { yylval.data = new std::string(yytext+1, yyleng-2); return VALUE_STRING; }

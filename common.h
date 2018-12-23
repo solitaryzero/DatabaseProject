@@ -123,7 +123,7 @@ public:
         data_ptr res = genDataContainer(sizeof(int)*3);
         *(int*)(res->data()) = year;
         *(int*)(res->data()+sizeof(int)) = month;
-        *(int*)(res->data()+sizeof(int)) = day;
+        *(int*)(res->data()+sizeof(int)*2) = day;
         return res;
     }
 };

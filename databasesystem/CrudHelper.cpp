@@ -372,3 +372,11 @@ bool CrudHelper::getTableName(DatabaseManager *db, Column &col, vector<string> &
 
     return true;
 }
+
+WhereClause CrudHelper::genConstraint(string tableName, string columnName, Value v){
+    string *tname = new string(tableName);
+    string *cname = new string(columnName);
+    Column *c = new Column(tname, cname);
+    Expr *e = new Expr(v);
+    return WhereClause(c, WhereOperands::WHERE_OP_EQ, e);
+}

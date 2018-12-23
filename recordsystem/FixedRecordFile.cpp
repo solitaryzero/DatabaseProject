@@ -15,6 +15,11 @@ FixedRecordFile::FixedRecordFile(string filename){
         this->header->pageNum = 1;
         this->bpm->markDirty(this->headerIndex);
     }
+
+    unsigned char *page;
+    int index;
+    page = (unsigned char*)(this->bpm->getPage(this->fileID, 1, index));
+    memset(page, 0, PAGE_SIZE);
 }
 
 FixedRecordFile::~FixedRecordFile(){
@@ -32,6 +37,12 @@ RID FixedRecordFile::insertData(data_ptr dat){
     this->currentPage = 1;
     while (true){
         page = (unsigned char*)(this->bpm->getPage(this->fileID, this->currentPage, index));
+
+        if (this->currentPage > this->header->pageNum){
+            //I shouldn't have believed that stupid filemanager :(
+            memset(page, 0, PAGE_SIZE);
+        }
+
         pheader = (FixedRecordPageHeader*)page;
         if (pheader->usedSlot >= this->header->availableRecordPerPage){
             this->currentPage++;

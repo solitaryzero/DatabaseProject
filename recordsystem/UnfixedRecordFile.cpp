@@ -15,6 +15,11 @@ UnfixedRecordFile::UnfixedRecordFile(string filename){
         this->header->pageNum = 1;
         this->bpm->markDirty(this->headerIndex);
     }
+
+    unsigned char *page;
+    int index;
+    page = (unsigned char*)(this->bpm->getPage(this->fileID, 1, index));
+    memset(page, 0, PAGE_SIZE);
 }
 
 UnfixedRecordFile::~UnfixedRecordFile(){
@@ -31,6 +36,12 @@ RID UnfixedRecordFile::insertData(data_ptr dat){
     int lastFreeOffset, slotNum, availableSpace;
     while (true){
         page = (unsigned char*)(this->bpm->getPage(this->fileID, this->currentPage, index));
+
+        if (this->currentPage > this->header->pageNum){
+            //I shouldn't have believed that stupid filemanager :(
+            memset(page, 0, PAGE_SIZE);
+        }
+
         lastFreeOffset = *(int*)(page+PAGE_SIZE-4);
         slotNum = *(int*)(page+PAGE_SIZE-8);
         availableSpace = PAGE_SIZE-8-lastFreeOffset-8*slotNum;
@@ -39,8 +50,9 @@ RID UnfixedRecordFile::insertData(data_ptr dat){
         }
         this->currentPage++;
     }
-    
+
     memcpy(page+lastFreeOffset, dat->data(), dat->size());
+
     *(int*)(page+PAGE_SIZE-8-8*slotNum-4) = lastFreeOffset;
     *(int*)(page+PAGE_SIZE-8-8*slotNum-8) = dat->size();
     slotNum++;

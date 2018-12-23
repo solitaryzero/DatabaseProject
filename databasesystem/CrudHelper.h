@@ -16,6 +16,7 @@ public:
     static void solveForeignKey_delete(DatabaseManager *db, shared_ptr<TableInfo> tif, const vector<RID> &rids);
 
     static bool getTableName(DatabaseManager *db, Column &col, vector<string> &tables);
+    static WhereClause genConstraint(string tableName, string columnName, Value v);
 };
 
 #endif

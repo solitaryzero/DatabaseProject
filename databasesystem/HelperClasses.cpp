@@ -102,6 +102,12 @@ Expr::Expr(Value *val){
     delete val;
 }
 
+Expr::Expr(Value val){
+    this->type = ExprType::VALUE_EXPR;
+    this->col = Column();
+    this->val = val;
+}
+
 Expr::Expr(ExprType type, Column *col, Value *val){
     this->type = type;
     this->col = *col;
