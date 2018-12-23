@@ -14,12 +14,13 @@ UnfixedRecordFile::UnfixedRecordFile(string filename){
         this->header->isValid = 1;
         this->header->pageNum = 1;
         this->bpm->markDirty(this->headerIndex);
-    }
 
-    unsigned char *page;
-    int index;
-    page = (unsigned char*)(this->bpm->getPage(this->fileID, 1, index));
-    memset(page, 0, PAGE_SIZE);
+        unsigned char *page;
+        int index;
+        page = (unsigned char*)(this->bpm->getPage(this->fileID, 1, index));
+        memset(page, 0, PAGE_SIZE);
+        this->bpm->markDirty(index);
+    }
 }
 
 UnfixedRecordFile::~UnfixedRecordFile(){

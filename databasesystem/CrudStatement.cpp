@@ -383,11 +383,8 @@ void SelectStatement::run(DatabaseManager *db){
         }
     }
 
-    cout << "[Debug] Check4 end.\n";
-
     //single table selection
     if (this->tList.size() == 1){
-        cout << "[Debug] Single select begin.\n";
         auto tif = db->tablePool[this->tList[0]];
         vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
         cout << "[Info] Selected " << res.size() << " records.\n";
@@ -433,6 +430,7 @@ void SelectStatement::run(DatabaseManager *db){
                 cout << "(";
                 RID r = res[k];
                 data_ptr raw = tif->dataFile->getData(r);
+                assert(raw != nullptr);
                 tif->cvt->fromByteArray(raw);
                 for (int j=0;j<tif->colNumbers;j++){
                     if (j > 0){
@@ -445,39 +443,6 @@ void SelectStatement::run(DatabaseManager *db){
                 cout << ")\n";
             }
         }
-
-        /*
-        if (this->sel.type == SelectorType::WILD_SELECTOR){
-            for (int i=0;i<tif->colNumbers;i++){
-                printf("%-12s", tif->colInfos[i]->columnName.c_str());
-            }
-            printf("\n");
-
-            for (RID r : res){
-                data_ptr d = tif->dataFile->getData(r);
-                tif->cvt->fromByteArray(d);
-                for (int i=0;i<tif->colNumbers;i++){
-                    printf("%-12s", DataOperands::toString(tif->colInfos[i]->columnType, tif->cvt->getRawData(i)).c_str());
-                }
-                printf("\n");
-            }
-        } else if (this->sel.type == SelectorType::COL_SELECTOR){
-            for (Column &c : this->sel.cols){
-                printf("%-12s", c.colName.c_str());
-            }
-            printf("\n");
-
-            for (RID r : res){
-                data_ptr d = tif->dataFile->getData(r);
-                assert(d != nullptr);
-                tif->cvt->fromByteArray(d);
-                for (Column &c : this->sel.cols){
-                    printf("%-12s", DataOperands::toString(tif->colInfoMapping[c.colName]->columnType, tif->cvt->getRawData(c.colName)).c_str());
-                }
-                printf("\n");
-            }
-        }
-        */
         return;
     }
 

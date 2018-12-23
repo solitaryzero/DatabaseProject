@@ -10,7 +10,7 @@ int crudInit(){
     parseSQL("../dataset_small/book.sql");
     parseSQL("../dataset_small/website.sql");
     parseSQL("../dataset_small/price.sql");
-    //parseSQL("../dataset_small/orders.sql");
+    parseSQL("../dataset_small/orders.sql");
     cout << "[Info] Insert complete.\n";
     return 0;
 }
@@ -20,9 +20,13 @@ void crudTest(){
     parseSQL(stdin);
 }
 
-int main(){
+int main(int argc,char* argv[]){
     dbm = new DatabaseManager();
-    crudInit();
+    if (argc == 2){
+        crudInit();
+        delete dbm;
+        return 0;
+    }
     crudTest();
     delete dbm;
     return 0;
