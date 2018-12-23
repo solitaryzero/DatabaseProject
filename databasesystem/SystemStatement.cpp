@@ -132,7 +132,9 @@ void CreateTableStatement::run(DatabaseManager *db){
             }
 
             //cout << "[Debug] Foreign key " << this->fieldList[i].srcColName << "->" << this->fieldList[i].destTabName << "." << this->fieldList[i].destColName << "\n";
-            db->addIndex(this->tbName, this->fieldList[i].srcColName);
+            if (sci->useIndex == 0){
+                db->addIndex(this->tbName, this->fieldList[i].srcColName);
+            }
 
             sci->hasForeign = true;
             sci->foreignTableName = this->fieldList[i].destTabName;

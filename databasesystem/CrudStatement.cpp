@@ -363,7 +363,8 @@ void SelectStatement::run(DatabaseManager *db){
         }
         varTypes t1 = tif->colInfoMapping[wc.col.colName]->columnType;
         if (wc.expr.type == ExprType::COL_EXPR){
-            auto tif2 = db->tablePool[wc.expr.col.colName];
+            
+            auto tif2 = db->tablePool[wc.expr.col.tableName];
             if (tif2->colInfoMapping.find(wc.expr.col.colName) == tif2->colInfoMapping.end()){
                 cout << "[Error] Column " << wc.expr.col.colName << " doesn't exist.\n";
                 return;
@@ -382,8 +383,11 @@ void SelectStatement::run(DatabaseManager *db){
         }
     }
 
+    cout << "[Debug] Check4 end.\n";
+
     //single table selection
     if (this->tList.size() == 1){
+        cout << "[Debug] Single select begin.\n";
         auto tif = db->tablePool[this->tList[0]];
         vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
         cout << "[Info] Selected " << res.size() << " records.\n";
@@ -481,7 +485,6 @@ void SelectStatement::run(DatabaseManager *db){
     vector<string> sortedTables;
     vector<WhereClause> sortedWhereConditions;
     CrudHelper::sortCrossTables(db, this->tList, this->wcs, sortedTables, sortedWhereConditions);
-
     if (sortedTables.size() < this->tList.size()){
         cout << "[Error] Some tables are not constrained, abort.\n";
         return;
@@ -609,9 +612,9 @@ void SelectStatement::run(DatabaseManager *db){
                 auto tif_source = db->tablePool[sortedWhereConditions[i].expr.col.tableName];
                 int index = tableIndex[sortedWhereConditions[i].expr.col.tableName];
                 
-                if (weight > currentSolvedLength){
+                if (weight >= currentSolvedLength){
                     //new table
-                    assert(weight == currentSolvedLength+1);
+                    assert(weight == currentSolvedLength);
 
                     vector<vector<RID>> newComb;
                     for (vector<RID> vr : combinationResult){
@@ -657,6 +660,17 @@ void SelectStatement::run(DatabaseManager *db){
     }
 
     cout << "[Info] Selected " << combinationResult.size() << " results.\n";
+
+    /*
+    cout << "[Debug] RIDs:\n";
+    for (vector<RID> rv : combinationResult){
+        cout << "(";
+        for (RID r : rv){
+            cout << r.pagenum << "." << r.slotnum << ",";
+        }
+        cout << ")\n";
+    }
+    */
 
     if (this->sel.type == SelectorType::COL_SELECTOR){
         cout << "(";
