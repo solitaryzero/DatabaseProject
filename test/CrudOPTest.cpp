@@ -5,7 +5,6 @@ int main(){
     if (system("mkdir data") == -1) return -1;
     if (system("rm -r ./data/*") == -1) return -1;
     dbm = new DatabaseManager();
-    //parseSQL("../test2.sql");
     parseSQL("../dataset_small/create.sql");
     cout << "[Info] Create complete.\n";
     parseSQL("../dataset_small/customer.sql");
@@ -14,6 +13,7 @@ int main(){
     parseSQL("../dataset_small/price.sql");
     parseSQL("../dataset_small/orders.sql");
     cout << "[Info] Insert complete.\n";
+    parseSQL("../test3.sql");
     parseSQL(stdin);
     delete dbm;
     return 0;

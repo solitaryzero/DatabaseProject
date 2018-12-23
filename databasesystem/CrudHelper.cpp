@@ -44,13 +44,14 @@ data_ptr CrudHelper::convert(varTypes dest, Value &v, bool &success){
             break;
         
         case varTypes::VARCHAR_TYPE:
-            assert(v.type == varTypes::CHAR_TYPE);
+            assert((v.type == varTypes::CHAR_TYPE) || (v.type == varTypes::VARCHAR_TYPE));
             return v.data;
             break;
 
         case varTypes::DATE_TYPE:
         {
-            assert(v.type == varTypes::CHAR_TYPE);
+            assert((v.type == varTypes::CHAR_TYPE) || (v.type == varTypes::DATE_TYPE));
+            if (v.type == varTypes::VARCHAR_TYPE) return v.data;
             data_ptr p = Value::stringToDate(v);
             if (p == nullptr){
                 cout << "[Error] Bad date format\n";
@@ -63,11 +64,13 @@ data_ptr CrudHelper::convert(varTypes dest, Value &v, bool &success){
         }
 
         case varTypes::DECIMAL_TYPE:
-            assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE));
+            assert((v.type == varTypes::INT_TYPE) || (v.type == varTypes::FLOAT_TYPE) || (v.type == varTypes::DECIMAL_TYPE));
             if (v.type == varTypes::INT_TYPE){
                 return Value::intToDecimal(v);
-            } else {
+            } else if (v.type == varTypes::FLOAT_TYPE){
                 return Value::floatToDecimal(v);
+            } else {
+                return v.data;
             }
             
             break;
@@ -343,11 +346,11 @@ bool CrudHelper::getTableName(DatabaseManager *db, Column &col, vector<string> &
         for (string s : tables){
             if (s == col.tableName){
                 return true;
-            } else {
-                cout << "[Error] Table " << col.tableName << " doesn't exist!\n";
-                return false;
             }
         }
+
+        cout << "[Error] Table " << col.tableName << " doesn't exist!\n";
+        return false;
     }
 
     for (string s : tables){
@@ -373,10 +376,112 @@ bool CrudHelper::getTableName(DatabaseManager *db, Column &col, vector<string> &
     return true;
 }
 
-WhereClause CrudHelper::genConstraint(string tableName, string columnName, Value v){
+WhereClause CrudHelper::genConstraint(string tableName, string columnName, Value v, WhereOperands op){
     string *tname = new string(tableName);
     string *cname = new string(columnName);
     Column *c = new Column(tname, cname);
     Expr *e = new Expr(v);
-    return WhereClause(c, WhereOperands::WHERE_OP_EQ, e);
+    return WhereClause(c, op, e);
+}
+
+void CrudHelper::sortCrossTables(DatabaseManager *db, vector<string> tableNames, vector<WhereClause> whereConditions, vector<string> &sortedTables, vector<WhereClause> &sortedWhereConditions){
+    vector<string> resTable;
+    map<string, int> tableIndex;
+    vector<WhereClause> resClause;
+    map<int, int> clauseIndex;
+
+    //value conditions for primary keys has the highest priority
+    for (unsigned int i=0;i<whereConditions.size();i++){
+        if (whereConditions[i].expr.type == ExprType::VALUE_EXPR){
+            auto cif = db->tablePool[whereConditions[i].col.tableName]->colInfoMapping[whereConditions[i].col.colName];
+            if ((cif->isPrimary) && (tableIndex.find(whereConditions[i].col.tableName) == tableIndex.end())){
+                tableIndex[whereConditions[i].col.tableName] = resTable.size();
+                resTable.push_back(whereConditions[i].col.tableName);
+            }
+        }
+    }
+
+    //value conditions for normal keys has the second highest priority
+    for (unsigned int i=0;i<whereConditions.size();i++){
+        if (whereConditions[i].expr.type == ExprType::VALUE_EXPR){
+            auto cif = db->tablePool[whereConditions[i].col.tableName]->colInfoMapping[whereConditions[i].col.colName];
+            if (tableIndex.find(whereConditions[i].col.tableName) == tableIndex.end()){
+                tableIndex[whereConditions[i].col.tableName] = resTable.size();
+                resTable.push_back(whereConditions[i].col.tableName);
+            }
+        }
+    }
+
+    //sort tables
+    while (resTable.size() < tableNames.size()){
+        int minParent = CrudHelper::failed;
+        int pos = -1;
+        string target = "";
+        for (unsigned int i=0;i<whereConditions.size();i++){
+            if (whereConditions[i].expr.type == ExprType::VALUE_EXPR) continue;
+
+            string t1 = whereConditions[i].col.tableName;
+            string t2 = whereConditions[i].expr.col.tableName;
+            if (tableIndex.find(t1) == tableIndex.end()){
+                if (tableIndex.find(t2) == tableIndex.end()) continue;
+                if (tableIndex[t2] < minParent){
+                    minParent = tableIndex[t2];
+                    pos = i;
+                    target = t1;
+                }
+            } else if ((tableIndex.find(t2) == tableIndex.end()) && (tableIndex[t1] < minParent)){
+                minParent = tableIndex[t1];
+                pos = i;
+                target = t2;
+            }
+        }
+
+        if (pos != -1){
+            tableIndex[target] = resTable.size();
+            resTable.push_back(target);
+        } else {
+            for (unsigned int i=0;i<whereConditions.size();i++){
+                if (whereConditions[i].expr.type == ExprType::VALUE_EXPR) continue;
+
+                string t1 = whereConditions[i].col.tableName;
+                string t2 = whereConditions[i].expr.col.tableName;
+                if ((tableIndex.find(t1) == tableIndex.end()) && (tableIndex.find(t2) == tableIndex.end())){
+                    tableIndex[t1] = resTable.size();
+                    resTable.push_back(t1);
+                    break;
+                }
+            }
+        }
+    }
+    sortedTables = resTable;
+
+    //sort conditons
+    vector<int> clauseWeight(whereConditions.size());
+    for (unsigned int i=0;i<whereConditions.size();i++){
+        if (whereConditions[i].expr.type == ExprType::VALUE_EXPR){
+            clauseWeight[i] = tableIndex[whereConditions[i].col.tableName]*2;
+        } else {
+            if (tableIndex[whereConditions[i].col.tableName] < tableIndex[whereConditions[i].expr.col.tableName]){
+                whereConditions[i].reverse();
+            }
+            assert(tableIndex[whereConditions[i].col.tableName] >= tableIndex[whereConditions[i].expr.col.tableName]);
+            clauseWeight[i] = tableIndex[whereConditions[i].col.tableName]*2+1;
+        }
+    }
+
+    for (unsigned int j=0;j<whereConditions.size();j++){
+        int pos = -1;
+        int minWeight = CrudHelper::failed;
+        for (unsigned int i=0;i<whereConditions.size();i++){
+            if (clauseIndex.find(i) != clauseIndex.end()) continue;
+            if (clauseWeight[i] < minWeight){
+                pos = i;
+                minWeight = clauseWeight[i];
+            }
+        }
+
+        resClause.push_back(whereConditions[pos]);
+        clauseIndex[pos] = j;
+    }
+    sortedWhereConditions = resClause;
 }

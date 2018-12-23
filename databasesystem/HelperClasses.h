@@ -64,6 +64,9 @@ public:
     string raw;
     data_ptr data;
 
+    Value();
+    Value(varTypes type, data_ptr data);
+
     static data_ptr intToFloat(Value v);
     static data_ptr stringToDate(Value v);
     static data_ptr intToDecimal(Value v);
@@ -118,6 +121,8 @@ public:
 
     WhereClause(Column *col, WhereOperands op);
     WhereClause(Column *col, WhereOperands op, Expr* expr);
+
+    void reverse();
 };
 
 class SetClause{

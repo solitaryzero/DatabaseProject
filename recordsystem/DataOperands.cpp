@@ -156,13 +156,13 @@ string DataOperands::toString(varTypes t, data_ptr p){
         case varTypes::CHAR_TYPE:
             {
                 string res((char*)(p->data()), p->size());
-                return res;
+                return "\""+res+"\"";
             }
             break;
         case varTypes::VARCHAR_TYPE:
             {
                 string res((char*)(p->data()), p->size());
-                return res;
+                return "\""+res+"\"";
             }
             break;
         case varTypes::DATE_TYPE:

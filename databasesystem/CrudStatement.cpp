@@ -355,8 +355,6 @@ void SelectStatement::run(DatabaseManager *db){
     //check whereclause correctness
     for (WhereClause &wc : this->wcs){
         auto tif = db->tablePool[wc.col.tableName];
-
-        cout << wc.col.tableName << "\n";
         assert(tif != nullptr);
 
         if (tif->colInfoMapping.find(wc.col.colName) == tif->colInfoMapping.end()){
@@ -384,39 +382,338 @@ void SelectStatement::run(DatabaseManager *db){
         }
     }
 
-    //TODO: implement cross-table query
-    auto tif = db->tablePool[this->tList[0]];
-    vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
-    cout << "[Info] Selected " << res.size() << " records.\n";
+    //single table selection
+    if (this->tList.size() == 1){
+        auto tif = db->tablePool[this->tList[0]];
+        vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
+        cout << "[Info] Selected " << res.size() << " records.\n";
 
-    if (this->sel.type == SelectorType::WILD_SELECTOR){
-        for (int i=0;i<tif->colNumbers;i++){
-            printf("%-12s", tif->colInfos[i]->columnName.c_str());
+        if (this->sel.type == SelectorType::COL_SELECTOR){
+            cout << "(";
+            for (unsigned int i=0;i<this->sel.cols.size();i++){
+                if (i > 0){
+                    cout << ",";
+                }
+                //cout << this->sel.cols[i].tableName << "." << this->sel.cols[i].colName;
+                cout << this->sel.cols[i].colName;
+            }
+            cout << ")\n";
+
+            for (unsigned int j=0;j<res.size();j++){
+                cout << "(";
+                for (unsigned int i=0;i<this->sel.cols.size();i++){
+                    if (i > 0){
+                        cout << ",";
+                    }
+                    RID r = res[j];
+                    data_ptr raw = tif->dataFile->getData(r);
+                    tif->cvt->fromByteArray(raw);
+                    data_ptr key = tif->cvt->getRawData(this->sel.cols[i].colName);
+                    varTypes type = tif->colInfoMapping[this->sel.cols[i].colName]->columnType;
+                    cout << DataOperands::toString(type, key);
+                }
+                cout << ")\n";
+            }
+        } else if (this->sel.type == SelectorType::WILD_SELECTOR){
+            cout << "(";
+
+            for (int j=0;j<tif->colNumbers;j++){
+                if (j > 0){
+                    cout << ",";
+                }
+                cout << tif->colInfos[j]->columnName;
+            }
+            cout << ")\n";
+
+            for (unsigned int k=0;k<res.size();k++){
+                cout << "(";
+                RID r = res[k];
+                data_ptr raw = tif->dataFile->getData(r);
+                tif->cvt->fromByteArray(raw);
+                for (int j=0;j<tif->colNumbers;j++){
+                    if (j > 0){
+                        cout << ",";
+                    }
+                    data_ptr key = tif->cvt->getRawData(j);
+                    varTypes type = tif->colInfos[j]->columnType;
+                    cout << DataOperands::toString(type, key);
+                }
+                cout << ")\n";
+            }
         }
-        printf("\n");
 
-        for (RID r : res){
-            data_ptr d = tif->dataFile->getData(r);
-            tif->cvt->fromByteArray(d);
+        /*
+        if (this->sel.type == SelectorType::WILD_SELECTOR){
             for (int i=0;i<tif->colNumbers;i++){
-                printf("%-12s", DataOperands::toString(tif->colInfos[i]->columnType, tif->cvt->getRawData(i)).c_str());
+                printf("%-12s", tif->colInfos[i]->columnName.c_str());
             }
             printf("\n");
-        }
-    } else if (this->sel.type == SelectorType::COL_SELECTOR){
-        for (Column &c : this->sel.cols){
-            printf("%-12s", c.colName.c_str());
-        }
-        printf("\n");
 
-        for (RID r : res){
-            data_ptr d = tif->dataFile->getData(r);
-            assert(d != nullptr);
-            tif->cvt->fromByteArray(d);
+            for (RID r : res){
+                data_ptr d = tif->dataFile->getData(r);
+                tif->cvt->fromByteArray(d);
+                for (int i=0;i<tif->colNumbers;i++){
+                    printf("%-12s", DataOperands::toString(tif->colInfos[i]->columnType, tif->cvt->getRawData(i)).c_str());
+                }
+                printf("\n");
+            }
+        } else if (this->sel.type == SelectorType::COL_SELECTOR){
             for (Column &c : this->sel.cols){
-                printf("%-12s", DataOperands::toString(tif->colInfoMapping[c.colName]->columnType, tif->cvt->getRawData(c.colName)).c_str());
+                printf("%-12s", c.colName.c_str());
             }
             printf("\n");
+
+            for (RID r : res){
+                data_ptr d = tif->dataFile->getData(r);
+                assert(d != nullptr);
+                tif->cvt->fromByteArray(d);
+                for (Column &c : this->sel.cols){
+                    printf("%-12s", DataOperands::toString(tif->colInfoMapping[c.colName]->columnType, tif->cvt->getRawData(c.colName)).c_str());
+                }
+                printf("\n");
+            }
+        }
+        */
+        return;
+    }
+
+    //multi table selection
+    vector<string> sortedTables;
+    vector<WhereClause> sortedWhereConditions;
+    CrudHelper::sortCrossTables(db, this->tList, this->wcs, sortedTables, sortedWhereConditions);
+
+    if (sortedTables.size() < this->tList.size()){
+        cout << "[Error] Some tables are not constrained, abort.\n";
+        return;
+    }
+
+    map<string, int> tableIndex;
+    for (unsigned int i=0;i<sortedTables.size();i++){
+        tableIndex[sortedTables[i]] = i;
+    }
+
+    int currentSolvedLength = 0;
+    vector<vector<RID>> combinationResult;
+
+    for (unsigned int i=0;i<sortedWhereConditions.size();i++){
+        int weight;
+        if ((sortedWhereConditions[i].expr.type == ExprType::VALUE_EXPR) || (sortedWhereConditions[i].col.tableName == sortedWhereConditions[i].expr.col.tableName)){
+            //value condition or inter-table condition
+            weight = tableIndex[sortedWhereConditions[i].col.tableName];
+            auto tif = db->tablePool[sortedWhereConditions[i].col.tableName];
+
+            if (weight == currentSolvedLength){
+                //includes new table
+                vector<RID> t = CrudHelper::getRIDsFrom(tif, sortedWhereConditions[i]);
+
+                if (currentSolvedLength == 0){
+                    //first table
+                    for (RID r : t){
+                        vector<RID> tt;
+                        tt.push_back(r);
+                        combinationResult.push_back(tt);
+                    }
+                } else {
+                    //not first table
+                    vector<vector<RID>> newComb;
+                    for (vector<RID> vr : combinationResult){
+                        for (RID r : t){
+                            vector<RID> __vr = vr;
+                            __vr.push_back(r);
+                            newComb.push_back(__vr);
+                        }
+                    }
+                    combinationResult = newComb;
+                }
+                currentSolvedLength++;
+            } else {
+                //only update existing table
+                vector<vector<RID>> newComb;
+                for (vector<RID> vr : combinationResult){
+                    data_ptr toCheck = tif->dataFile->getData(vr[weight]);
+                    if (CrudHelper::checkCondition(tif->cvt, toCheck, sortedWhereConditions[i])){
+                        combinationResult.push_back(vr);
+                    }
+                }
+                combinationResult = newComb;
+            }
+        } else {
+            //cross-table condition
+            weight = tableIndex[sortedWhereConditions[i].expr.col.tableName];
+            if (weight == currentSolvedLength){
+                //two new tables
+                assert(weight+1 == tableIndex[sortedWhereConditions[i].col.tableName]);
+                auto tif = db->tablePool[sortedWhereConditions[i].col.tableName];
+                auto tif_source = db->tablePool[sortedWhereConditions[i].expr.col.tableName];
+                //int index = tableIndex[sortedWhereConditions[i].col.tableName];
+                //int index_source = tableIndex[sortedWhereConditions[i].expr.col.tableName];
+
+                if (currentSolvedLength == 0){
+                    //first table
+                    data_ptr dataIterator = tif_source->dataFile->firstData();
+                    vector<vector<RID>> newComb;
+
+                    while (dataIterator != nullptr){
+                        tif_source->cvt->fromByteArray(dataIterator);
+                        data_ptr key = tif_source->cvt->getRawData(sortedWhereConditions[i].expr.col.colName);
+                        varTypes type = tif_source->colInfoMapping[sortedWhereConditions[i].expr.col.colName]->columnType;
+                        Value v(type, key);
+
+                        WhereClause wc = CrudHelper::genConstraint(sortedWhereConditions[i].col.tableName, sortedWhereConditions[i].col.colName, v, sortedWhereConditions[i].op);
+                        vector<RID> t = CrudHelper::getRIDsFrom(tif, wc);
+
+                        for (RID r : t){
+                            vector<RID> vr;
+                            vr.push_back(tif_source->dataFile->getCurrentRID());
+                            vr.push_back(r);
+                            newComb.push_back(vr);
+                        }
+                        dataIterator = tif_source->dataFile->nextData();
+                    }
+
+                    combinationResult = newComb;
+                } else {
+                    //not first table
+                    data_ptr dataIterator = tif_source->dataFile->firstData();
+                    vector<vector<RID>> newComb;
+
+                    while (dataIterator != nullptr){
+                        tif_source->cvt->fromByteArray(dataIterator);
+                        data_ptr key = tif_source->cvt->getRawData(sortedWhereConditions[i].expr.col.colName);
+                        varTypes type = tif_source->colInfoMapping[sortedWhereConditions[i].expr.col.colName]->columnType;
+                        Value v(type, key);
+
+                        WhereClause wc = CrudHelper::genConstraint(sortedWhereConditions[i].col.tableName, sortedWhereConditions[i].col.colName, v, sortedWhereConditions[i].op);
+                        vector<RID> t = CrudHelper::getRIDsFrom(tif, wc);
+
+                        for (vector<RID> vr : combinationResult){
+                            for (RID r : t){
+                                vector<RID> __vr = vr;
+                                __vr.push_back(tif_source->dataFile->getCurrentRID());
+                                __vr.push_back(r);
+                                newComb.push_back(__vr);
+                            }
+                        }
+                        
+                        dataIterator = tif_source->dataFile->nextData();
+                    }
+
+                    combinationResult = newComb;
+                }
+
+                currentSolvedLength += 2;
+            } else {
+                //includes at least existing table
+                weight = tableIndex[sortedWhereConditions[i].col.tableName];
+                auto tif = db->tablePool[sortedWhereConditions[i].col.tableName];
+                auto tif_source = db->tablePool[sortedWhereConditions[i].expr.col.tableName];
+                int index = tableIndex[sortedWhereConditions[i].expr.col.tableName];
+                
+                if (weight > currentSolvedLength){
+                    //new table
+                    assert(weight == currentSolvedLength+1);
+
+                    vector<vector<RID>> newComb;
+                    for (vector<RID> vr : combinationResult){
+                        data_ptr raw = tif_source->dataFile->getData(vr[index]);
+                        tif_source->cvt->fromByteArray(raw);
+                        data_ptr key = tif_source->cvt->getRawData(sortedWhereConditions[i].expr.col.colName);
+                        varTypes type = tif_source->colInfoMapping[sortedWhereConditions[i].expr.col.colName]->columnType;
+                        Value v(type, key);
+
+                        WhereClause wc = CrudHelper::genConstraint(sortedWhereConditions[i].col.tableName, sortedWhereConditions[i].col.colName, v, sortedWhereConditions[i].op);
+                        vector<RID> t = CrudHelper::getRIDsFrom(tif, wc);
+
+                        for (RID r : t){
+                            vector<RID> __vr = vr;
+                            __vr.push_back(r);
+                            newComb.push_back(__vr);
+                        }
+                    }
+                    combinationResult = newComb;
+
+                    currentSolvedLength++;
+                } else {
+                    //existing table
+                    vector<vector<RID>> newComb;
+                    for (vector<RID> vr : combinationResult){
+                        data_ptr raw = tif_source->dataFile->getData(vr[index]);
+                        tif_source->cvt->fromByteArray(raw);
+                        data_ptr key = tif_source->cvt->getRawData(sortedWhereConditions[i].expr.col.colName);
+                        varTypes type = tif_source->colInfoMapping[sortedWhereConditions[i].expr.col.colName]->columnType;
+                        Value v(type, key);
+                        
+                        WhereClause wc = CrudHelper::genConstraint(sortedWhereConditions[i].col.tableName, sortedWhereConditions[i].col.colName, v, sortedWhereConditions[i].op);
+
+                        data_ptr toCheck = tif->dataFile->getData(vr[weight]);
+                        if (CrudHelper::checkCondition(tif->cvt, toCheck, wc)){
+                            combinationResult.push_back(vr);
+                        }
+                    }
+                    combinationResult = newComb;
+                }
+            }
+        }
+    }
+
+    cout << "[Info] Selected " << combinationResult.size() << " results.\n";
+
+    if (this->sel.type == SelectorType::COL_SELECTOR){
+        cout << "(";
+        for (unsigned int i=0;i<this->sel.cols.size();i++){
+            if (i > 0){
+                cout << ",";
+            }
+            cout << this->sel.cols[i].tableName << "." << this->sel.cols[i].colName;
+        }
+        cout << ")\n";
+
+        for (unsigned int j=0;j<combinationResult.size();j++){
+            cout << "(";
+            for (unsigned int i=0;i<this->sel.cols.size();i++){
+                if (i > 0){
+                    cout << ",";
+                }
+                auto tif = db->tablePool[this->sel.cols[i].tableName];
+                RID r = combinationResult[j][tableIndex[this->sel.cols[i].tableName]];
+                data_ptr raw = tif->dataFile->getData(r);
+                tif->cvt->fromByteArray(raw);
+                data_ptr key = tif->cvt->getRawData(this->sel.cols[i].colName);
+                varTypes type = tif->colInfoMapping[this->sel.cols[i].colName]->columnType;
+                cout << DataOperands::toString(type, key);
+            }
+            cout << ")\n";
+        }
+    } else if (this->sel.type == SelectorType::WILD_SELECTOR){
+        cout << "(";
+        for (unsigned int i=0;i<this->tList.size();i++){
+            auto tif = db->tablePool[this->tList[i]];
+            for (int j=0;j<tif->colNumbers;j++){
+                if ((i > 0) || (j > 0)){
+                    cout << ",";
+                }
+                cout << tif->tableName << "." << tif->colInfos[j]->columnName;
+            }
+        }
+        cout << ")\n";
+
+        for (unsigned int k=0;k<combinationResult.size();k++){
+            cout << "(";
+            for (unsigned int i=0;i<this->tList.size();i++){
+                auto tif = db->tablePool[this->tList[i]];
+                RID r = combinationResult[k][tableIndex[this->sel.cols[i].tableName]];
+                data_ptr raw = tif->dataFile->getData(r);
+                tif->cvt->fromByteArray(raw);
+                for (int j=0;j<tif->colNumbers;j++){
+                    if ((i > 0) || (j > 0)){
+                        cout << ",";
+                    }
+                    data_ptr key = tif->cvt->getRawData(j);
+                    varTypes type = tif->colInfos[j]->columnType;
+                    cout << DataOperands::toString(type, key);
+                }
+            }
+            cout << ")\n";
         }
     }
 }

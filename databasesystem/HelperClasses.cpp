@@ -1,5 +1,17 @@
 #include "HelperClasses.h"
 
+Value::Value(){
+    this->data = nullptr;
+    this->raw = "";
+    this->type = varTypes::UNKNOWN_TYPE;
+}
+
+Value::Value(varTypes type, data_ptr data){
+    this->data = data;
+    this->type = type;
+    this->raw = "";
+}
+
 data_ptr Value::intToFloat(Value v){
     data_ptr newData = DataContainer::genFloatData(float(*(int*)(v.data->data())));
     return newData;
@@ -129,6 +141,35 @@ WhereClause::WhereClause(Column *col, WhereOperands op, Expr* expr){
     this->expr = *expr;
     delete col;
     delete expr;
+}
+
+void WhereClause::reverse(){
+    assert(this->expr.type == ExprType::COL_EXPR);
+    Column t = this->col;
+    this->col = this->expr.col;
+    this->expr.col = t;
+    switch (this->op){
+        case WhereOperands::WHERE_OP_EQ:
+            this->op = WHERE_OP_EQ;
+            break;
+        case WhereOperands::WHERE_OP_NE:
+            this->op = WHERE_OP_NE;
+            break;
+        case WhereOperands::WHERE_OP_GT:
+            this->op = WHERE_OP_LT;
+            break;
+        case WhereOperands::WHERE_OP_LT:
+            this->op = WHERE_OP_GT;
+            break;
+        case WhereOperands::WHERE_OP_GE:
+            this->op = WHERE_OP_LE;
+            break;
+        case WhereOperands::WHERE_OP_LE:
+            this->op = WHERE_OP_GE;
+            break;
+        default:
+            assert(false);
+    }
 }
 
 SetClause::SetClause(string *colName, Value *v){
