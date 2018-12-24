@@ -393,7 +393,11 @@ void SelectStatement::run(DatabaseManager *db){
         }
         varTypes t1 = tif->colInfoMapping[wc.col.colName]->columnType;
         if (wc.expr.type == ExprType::COL_EXPR){
-            
+            if (wc.op == WhereOperands::WHERE_OP_LIKE){
+                cout << "[Error] Cannot apply LIKE operand between columns.\n";
+                return;
+            }
+
             auto tif2 = db->tablePool[wc.expr.col.tableName];
             if (tif2->colInfoMapping.find(wc.expr.col.colName) == tif2->colInfoMapping.end()){
                 cout << "[Error] Column " << wc.expr.col.colName << " doesn't exist.\n";
@@ -405,6 +409,14 @@ void SelectStatement::run(DatabaseManager *db){
                 return;
             }
         } else {
+            if (wc.op == WhereOperands::WHERE_OP_LIKE){
+                if ((t1 != varTypes::CHAR_TYPE) && (t1 != varTypes::VARCHAR_TYPE)){
+                    cout << "[Error] Cannot apply LIKE operand on non-char columns.\n";
+                    return;
+                }
+                continue;
+            }
+
             varTypes t2 = wc.expr.val.type;
             if (!CrudHelper::convertible(t1, t2)){
                 cout << "[Error] Column " << wc.col.colName << " cannot be converted from type " << DataOperands::typeName(t2) << "\n";

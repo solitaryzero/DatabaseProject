@@ -16,7 +16,8 @@ int crudInit(){
 }
 
 void crudTest(){
-    parseSQL("../test3.sql");
+    //parseSQL("../test3.sql");
+    parseSQL("../testlike.sql");
     parseSQL(stdin);
 }
 

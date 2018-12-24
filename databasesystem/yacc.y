@@ -17,7 +17,7 @@ using namespace std;
 %token DESC INDEX AND OR
 %token INT VARCHAR CHAR FLOAT DATE DECIMAL
 %token FOREIGN REFERENCES
-%token OP_EQ OP_NE OP_GT OP_LT OP_LE OP_GE
+%token OP_EQ OP_NE OP_GT OP_LT OP_LE OP_GE LIKE
 %token AVG SUM MIN MAX COUNT
 
 %union {
@@ -342,6 +342,10 @@ op              : OP_EQ
                 | OP_LT
                     {
                         $$ = WHERE_OP_LT;
+                    }
+                | LIKE
+                    {
+                        $$ = WHERE_OP_LIKE;
                     }
                 ;
 

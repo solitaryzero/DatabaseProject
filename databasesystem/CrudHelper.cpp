@@ -139,6 +139,25 @@ bool CrudHelper::checkCondition(shared_ptr<RecordConverter> cvt, data_ptr data, 
             if (a == nullptr) return false;
             return true;
             break;
+        case WHERE_OP_LIKE:
+            {
+                string text = cvt->getChar(wc.col.colName);
+                string s = "";
+                for (unsigned int i=0;i<wc.expr.val.raw.size();i++){
+                    if (wc.expr.val.raw[i] == '%'){
+                        s.push_back('.');
+                        s.push_back('*');
+                    } else if (wc.expr.val.raw[i] == '_'){
+                        s.push_back('.');
+                    } else {
+                        s.push_back(wc.expr.val.raw[i]);
+                    }
+                }
+                regex rgx(s);
+                std::match_results<std::string::iterator> results1;
+	            return std::regex_match(text.begin(), text.end(), results1, rgx);
+            }
+            break;
         default:
             cout << "[Error] Undefined operand\n";
             return false;
@@ -227,7 +246,7 @@ vector<RID> CrudHelper::getRIDsFrom(shared_ptr<TableInfo> tif, const vector<Wher
 vector<RID> CrudHelper::getRIDsFrom(shared_ptr<TableInfo> tif, const WhereClause &wc){
     auto cif = tif->colInfoMapping[wc.col.colName];
     vector<RID> res;
-    if ((cif->useIndex == 0) || (wc.expr.type == ExprType::COL_EXPR)){
+    if ((cif->useIndex == 0) || (wc.expr.type == ExprType::COL_EXPR) || (wc.op == WhereOperands::WHERE_OP_LIKE)){
         data_ptr it = tif->dataFile->firstData();
         while (it != nullptr){
             if (CrudHelper::checkCondition(tif->cvt, it, wc)){

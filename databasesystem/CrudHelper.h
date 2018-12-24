@@ -2,6 +2,7 @@
 #define CRUDHELPER_H
 
 #include "Statement.h"
+#include <regex>
 
 class CrudHelper{
 public:

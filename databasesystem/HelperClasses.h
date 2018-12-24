@@ -86,7 +86,8 @@ enum WhereOperands{
     WHERE_OP_GT,
     WHERE_OP_LT,
     WHERE_OP_NOTNULL,
-    WHERE_OP_ISNULL
+    WHERE_OP_ISNULL,
+    WHERE_OP_LIKE
 };
 
 class Column{

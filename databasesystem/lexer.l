@@ -87,6 +87,7 @@ WHITESPACE              [ \t]
 "MIN"                   { return MIN; }
 "MAX"                   { return MAX; }
 "COUNT"                 { return COUNT; }
+"LIKE"                  { return LIKE; }
 
 {NEWLINE}               { /* pass */ }
 {WHITESPACE}            { /* pass */ }

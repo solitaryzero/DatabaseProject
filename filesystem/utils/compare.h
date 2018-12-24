@@ -21,7 +21,7 @@ using namespace std;
 #define E 4
 #define UNI 0
 #define UNUNI 1
-#define N 0
+//#define N (0)
 #define UN 1
 #define ALL 0
 #define RANGE 1
