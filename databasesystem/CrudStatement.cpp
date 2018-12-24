@@ -240,6 +240,15 @@ void UpdateStatement::run(DatabaseManager *db){
             return;
         }
 
+        Value v = sc.v;
+        if (v.type == varTypes::UNKNOWN_TYPE){
+            assert(v.data == nullptr);
+            if (!cif->allowNull){
+                cout << "[Error] Trying to update value to null on a not nullable column.\n";
+                return;
+            }
+        }
+
         if (!CrudHelper::convertible(cif->columnType, sc.v.type)){
             cout << "[Error] Inconvertible type on column " << cif->columnName << "\n";
             return;
