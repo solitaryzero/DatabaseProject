@@ -85,7 +85,7 @@ void InsertStatement::run(DatabaseManager *db){
                 auto c = t->colInfoMapping[cif->foreignColumnName];
                 assert(c != nullptr);
                 assert(c->indexTree != nullptr);
-                if (!c->indexTree->has(indexValueMap[j])){
+                if ((indexValueMap[j] != nullptr) && (!c->indexTree->has(indexValueMap[j]))){
                     cout << "[Error] Failed to solve foreign key constraint on " << cif->columnName << "\n";
                     flag = false;
                     break;
@@ -245,7 +245,7 @@ void UpdateStatement::run(DatabaseManager *db){
             return;
         }
 
-        if (cif->hasForeign){
+        if ((cif->hasForeign) && (sc.v.data != nullptr)){
             auto t = db->tablePool[cif->foreignTableName];
             auto c = t->colInfoMapping[cif->foreignColumnName];
             bool flag = true;

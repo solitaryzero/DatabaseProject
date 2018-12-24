@@ -1,6 +1,8 @@
 #include "CrudHelper.h"
 
 bool CrudHelper::convertible(varTypes to, varTypes from){
+    if (from == varTypes::UNKNOWN_TYPE) return true;
+
     switch(to){
         case varTypes::FLOAT_TYPE:
             return ((from == varTypes::INT_TYPE) || (from == varTypes::FLOAT_TYPE));
@@ -22,6 +24,8 @@ bool CrudHelper::convertible(varTypes to, varTypes from){
 }
 
 data_ptr CrudHelper::convert(varTypes dest, Value &v, bool &success){
+    if (v.data == nullptr) return nullptr;
+
     switch (dest)
     {
         case varTypes::INT_TYPE:

@@ -22,7 +22,9 @@ data_ptr Value::stringToDate(Value v){
 
     int year, month, day;
     if (sscanf(v.raw.c_str(), "%d-%d-%d", &year, &month, &day) < 3){
-        return nullptr;
+        if (sscanf(v.raw.c_str(), "%d/%d/%d", &year, &month, &day) < 3){
+            return nullptr;
+        }   
     }
     if (year < 0) return nullptr;
     if ((month < 1) || (month > 12)) return nullptr;
