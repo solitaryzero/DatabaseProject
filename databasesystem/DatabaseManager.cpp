@@ -15,20 +15,23 @@ void DatabaseManager::showDatabases(){
 
     DIR *dir = opendir(fullPath.c_str());
     if (dir == nullptr){
-        cout << "open directory failed\n";
+        cout << "[Error] open directory failed\n";
         return;
     }
 
-    cout << "Databases\n";
-    cout << "================\n";
+    cout << "[Info] Databases\n";
+    //cout << "================\n";
     struct dirent *filename;
+    int cnt = 0;
     while((filename = readdir(dir)) != nullptr){
         string fname(filename->d_name);
         if ((filename->d_type == DT_DIR) && (fname != ".") && (fname != "..")){
             cout << fname << "\n";
+            cnt++;
         }
-    } 
-    cout << "================\n";
+    }
+    cout << "[Info] " << cnt << " databases in total.\n";
+    //cout << "================\n";
 }
 
 void DatabaseManager::switchDatabase(string dbName){
@@ -105,11 +108,11 @@ void DatabaseManager::showTables(){
         return;
     }
 
-    cout << "Tables in " << this->databaseName << ":\n";
-    cout << "================\n";
+    cout << "[Info] " << this->tablePool.size() << " tables in " << this->databaseName << ":\n";
+    //cout << "================\n";
 
     if (this->tablePool.size() == 0){
-        cout << "No tables found.\n";
+        //cout << "[Info] No tables found.\n";
         return;
     }
 
@@ -119,7 +122,7 @@ void DatabaseManager::showTables(){
         it++;
     }
 
-    cout << "================\n";
+    //cout << "================\n";
 }
 
 shared_ptr<TableInfo> DatabaseManager::createTable(string tableName){
