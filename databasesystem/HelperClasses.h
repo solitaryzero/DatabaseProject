@@ -169,4 +169,10 @@ public:
     ColumnSelector(vector<Column> *cols);
 };
 
+class AggSelector : public Selector{
+public:
+    AggSelector(SelectorType type, Column *col);
+    AggSelector(SelectorType type);
+};
+
 #endif

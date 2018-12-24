@@ -55,7 +55,13 @@ enum class ExprType{
 
 enum class SelectorType{
     WILD_SELECTOR,
-    COL_SELECTOR
+    COL_SELECTOR,
+    AVG_SELECTOR,
+    SUM_SELECTOR,
+    MIN_SELECTOR,
+    MAX_SELECTOR,
+    COUNT_SELECTOR,
+    COUNT_WILD_SELECTOR
 };
 
 class date{

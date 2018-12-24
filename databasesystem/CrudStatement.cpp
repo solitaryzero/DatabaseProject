@@ -333,22 +333,52 @@ void SelectStatement::run(DatabaseManager *db){
         }
     }
 
-    //check selector column correctness
+    //check selector correctness
     if (this->sel.type == SelectorType::COL_SELECTOR){
+        //check selector column correctness
         for (Column &c : this->sel.cols){
             bool res = CrudHelper::getTableName(db, c, this->tList);
-            if (!res) return;
+            if (!res) {
+                cout << "[Error] Resolve selector failed.\n";
+                return;
+            }
+        }
+    } else if ((this->sel.type == SelectorType::AVG_SELECTOR) || (this->sel.type == SelectorType::SUM_SELECTOR)){
+        assert(this->sel.cols.size() == 1);
+        bool res = CrudHelper::getTableName(db, this->sel.cols[0], this->tList);
+        if (!res) {
+            cout << "[Error] Resolve selector failed.\n";
+            return;
+        }
+
+        auto cif = db->tablePool[this->sel.cols[0].tableName]->colInfoMapping[this->sel.cols[0].colName];
+        if ((cif->columnType != varTypes::INT_TYPE) && (cif->columnType != varTypes::FLOAT_TYPE)){
+            cout << "[Error] Selector on column " << cif->columnName << "doesn't have type INT or FLOAT.\n";
+            return;
+        }
+    } else if ((this->sel.type != SelectorType::WILD_SELECTOR) && (this->sel.type != SelectorType::COUNT_WILD_SELECTOR)){
+        assert(this->sel.cols.size() == 1);
+        bool res = CrudHelper::getTableName(db, this->sel.cols[0], this->tList);
+        if (!res) {
+            cout << "[Error] Resolve selector failed.\n";
+            return;
         }
     }
 
     //check whereclause column correctness
     for (WhereClause &wc : this->wcs){
         bool res = CrudHelper::getTableName(db, wc.col, this->tList);
-        if (!res) return;
+        if (!res) {
+            cout << "[Error] Resolve where clause failed.\n";
+            return;
+        }
 
         if (wc.expr.type == ExprType::COL_EXPR){
             res = CrudHelper::getTableName(db, wc.expr.col, this->tList);
-            if (!res) return;
+            if (!res) {
+                cout << "[Error] Resolve where clause failed.\n";
+                return;
+            }
         }
     }
 
@@ -387,9 +417,9 @@ void SelectStatement::run(DatabaseManager *db){
     if (this->tList.size() == 1){
         auto tif = db->tablePool[this->tList[0]];
         vector<RID> res = CrudHelper::getRIDsFrom(tif, this->wcs);
-        cout << "[Info] Selected " << res.size() << " records.\n";
 
         if (this->sel.type == SelectorType::COL_SELECTOR){
+            cout << "[Info] Selected " << res.size() << " records.\n";
             cout << "(";
             for (unsigned int i=0;i<this->sel.cols.size();i++){
                 if (i > 0){
@@ -416,8 +446,8 @@ void SelectStatement::run(DatabaseManager *db){
                 cout << ")\n";
             }
         } else if (this->sel.type == SelectorType::WILD_SELECTOR){
+            cout << "[Info] Selected " << res.size() << " records.\n";
             cout << "(";
-
             for (int j=0;j<tif->colNumbers;j++){
                 if (j > 0){
                     cout << ",";
@@ -442,6 +472,119 @@ void SelectStatement::run(DatabaseManager *db){
                 }
                 cout << ")\n";
             }
+        } else if ((this->sel.type == SelectorType::AVG_SELECTOR) || (this->sel.type == SelectorType::SUM_SELECTOR)){
+            if (this->sel.type == SelectorType::AVG_SELECTOR){
+                cout << "(AVG(" << this->sel.cols[0].colName << "))\n";
+            } else {
+                cout << "(SUM(" << this->sel.cols[0].colName << "))\n";
+            }
+
+            auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+            if (cif->columnType == varTypes::INT_TYPE){
+                int sum = 0;
+                int cnt = 0;
+                for (RID r : res){
+                    data_ptr raw = tif->dataFile->getData(r);
+                    tif->cvt->fromByteArray(raw);
+                    if (!tif->cvt->isNull(cif->columnName)){
+                        int t = tif->cvt->getInt(cif->columnName);
+                        sum += t;
+                        cnt++;
+                    }
+                }
+
+                if (this->sel.type == SelectorType::AVG_SELECTOR){
+                    float outp;
+                    if (cnt == 0) {
+                        outp = 0;
+                    } else {
+                        outp = (float)sum/(float)cnt;
+                    }
+                    cout << "(" << outp << ")\n";
+                } else {
+                    cout << "(" << sum << ")\n";
+                }
+            } else if (cif->columnType == varTypes::FLOAT_TYPE){
+                float sum = 0;
+                int cnt = 0;
+                for (RID r : res){
+                    data_ptr raw = tif->dataFile->getData(r);
+                    tif->cvt->fromByteArray(raw);
+                    if (!tif->cvt->isNull(cif->columnName)){
+                        float t = tif->cvt->getFloat(cif->columnName);
+                        sum += t;
+                        cnt++;
+                    }
+                }
+                if (this->sel.type == SelectorType::AVG_SELECTOR){
+                    float outp;
+                    if (cnt == 0) {
+                        outp = 0;
+                    } else {
+                        outp = sum/(float)cnt;
+                    }
+                    cout << "(" << outp << ")\n";
+                } else {
+                    cout << "(" << sum << ")\n";
+                }
+            }
+        } else if (this->sel.type == SelectorType::MAX_SELECTOR){
+            cout << "(MAX(" << this->sel.cols[0].colName << "))\n";
+
+            auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+            varTypes type = cif->columnType;
+            data_ptr m = nullptr;
+
+            for (RID r : res){
+                data_ptr raw = tif->dataFile->getData(r);
+                tif->cvt->fromByteArray(raw);
+                if (!tif->cvt->isNull(cif->columnName)){
+                    data_ptr key = tif->cvt->getRawData(cif->columnName);
+                    if ((m == nullptr) || (DataOperands::compare(type, m, key) < 0)){
+                        m = key;
+                    }
+                }
+            }
+
+            cout << "(" << DataOperands::toString(type, m) << ")\n";
+        } else if (this->sel.type == SelectorType::MIN_SELECTOR){
+            cout << "(MIN(" << this->sel.cols[0].colName << "))\n";
+
+            auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+            varTypes type = cif->columnType;
+            data_ptr m = nullptr;
+
+            for (RID r : res){
+                data_ptr raw = tif->dataFile->getData(r);
+                tif->cvt->fromByteArray(raw);
+                if (!tif->cvt->isNull(cif->columnName)){
+                    data_ptr key = tif->cvt->getRawData(cif->columnName);
+                    if ((m == nullptr) || (DataOperands::compare(type, m, key) > 0)){
+                        m = key;
+                    }
+                }
+            }
+
+            cout << "(" << DataOperands::toString(type, m) << ")\n";
+        } else if (this->sel.type == SelectorType::COUNT_SELECTOR){
+            cout << "(COUNT(" << this->sel.cols[0].colName << "))\n";
+
+            auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+            int cnt = 0;
+
+            for (RID r : res){
+                data_ptr raw = tif->dataFile->getData(r);
+                tif->cvt->fromByteArray(raw);
+                if (!tif->cvt->isNull(cif->columnName)){
+                    cnt++;
+                }
+            }
+
+            cout << "(" << cnt << ")\n";
+        } else if (this->sel.type == SelectorType::COUNT_WILD_SELECTOR){
+            cout << "(COUNT(*))\n";
+            int cnt = res.size();
+            cout << "(" << cnt << ")\n";
         }
         return;
     }
@@ -624,8 +767,6 @@ void SelectStatement::run(DatabaseManager *db){
         }
     }
 
-    cout << "[Info] Selected " << combinationResult.size() << " results.\n";
-
     /*
     cout << "[Debug] RIDs:\n";
     for (vector<RID> rv : combinationResult){
@@ -638,6 +779,7 @@ void SelectStatement::run(DatabaseManager *db){
     */
 
     if (this->sel.type == SelectorType::COL_SELECTOR){
+        cout << "[Info] Selected " << combinationResult.size() << " results.\n";
         cout << "(";
         for (unsigned int i=0;i<this->sel.cols.size();i++){
             if (i > 0){
@@ -664,6 +806,7 @@ void SelectStatement::run(DatabaseManager *db){
             cout << ")\n";
         }
     } else if (this->sel.type == SelectorType::WILD_SELECTOR){
+        cout << "[Info] Selected " << combinationResult.size() << " results.\n";
         cout << "(";
         for (unsigned int i=0;i<this->tList.size();i++){
             auto tif = db->tablePool[this->tList[i]];
@@ -694,5 +837,126 @@ void SelectStatement::run(DatabaseManager *db){
             }
             cout << ")\n";
         }
+    } else if ((this->sel.type == SelectorType::AVG_SELECTOR) || (this->sel.type == SelectorType::SUM_SELECTOR)){
+        if (this->sel.type == SelectorType::AVG_SELECTOR){
+            cout << "(AVG(" << this->sel.cols[0].tableName << "." << this->sel.cols[0].colName << "))\n";
+        } else {
+            cout << "(SUM(" << this->sel.cols[0].tableName << "." << this->sel.cols[0].colName << "))\n";
+        }
+
+        auto tif = db->tablePool[this->sel.cols[0].tableName];
+        auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+        int index = tableIndex[this->sel.cols[0].tableName];
+        if (cif->columnType == varTypes::INT_TYPE){
+            int sum = 0;
+            int cnt = 0;
+            for (vector<RID> vr : combinationResult){
+                data_ptr raw = tif->dataFile->getData(vr[index]);
+                tif->cvt->fromByteArray(raw);
+                if (!tif->cvt->isNull(cif->columnName)){
+                    int t = tif->cvt->getInt(cif->columnName);
+                    sum += t;
+                    cnt++;
+                }
+            }
+
+            if (this->sel.type == SelectorType::AVG_SELECTOR){
+                float outp;
+                if (cnt == 0) {
+                    outp = 0;
+                } else {
+                    outp = (float)sum/(float)cnt;
+                }
+                cout << "(" << outp << ")\n";
+            } else {
+                cout << "(" << sum << ")\n";
+            }
+        } else if (cif->columnType == varTypes::FLOAT_TYPE){
+            float sum = 0;
+            int cnt = 0;
+            for (vector<RID> vr : combinationResult){
+                data_ptr raw = tif->dataFile->getData(vr[index]);
+                tif->cvt->fromByteArray(raw);
+                if (!tif->cvt->isNull(cif->columnName)){
+                    float t = tif->cvt->getFloat(cif->columnName);
+                    sum += t;
+                    cnt++;
+                }
+            }
+            if (this->sel.type == SelectorType::AVG_SELECTOR){
+                float outp;
+                if (cnt == 0) {
+                    outp = 0;
+                } else {
+                    outp = sum/(float)cnt;
+                }
+                cout << "(" << outp << ")\n";
+            } else {
+                cout << "(" << sum << ")\n";
+            }
+        }
+    } else if (this->sel.type == SelectorType::MAX_SELECTOR){
+        cout << "(MAX(" << this->sel.cols[0].tableName << "." << this->sel.cols[0].colName << "))\n";
+
+        auto tif = db->tablePool[this->sel.cols[0].tableName];
+        auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+        int index = tableIndex[this->sel.cols[0].tableName];
+        varTypes type = cif->columnType;
+        data_ptr m = nullptr;
+
+        for (vector<RID> vr : combinationResult){
+            data_ptr raw = tif->dataFile->getData(vr[index]);
+            tif->cvt->fromByteArray(raw);
+            if (!tif->cvt->isNull(cif->columnName)){
+                data_ptr key = tif->cvt->getRawData(cif->columnName);
+                if ((m == nullptr) || (DataOperands::compare(type, m, key) < 0)){
+                    m = key;
+                }
+            }
+        }
+
+        cout << "(" << DataOperands::toString(type, m) << ")\n";
+    } else if (this->sel.type == SelectorType::MIN_SELECTOR){
+        cout << "(MIN(" << this->sel.cols[0].tableName << "." << this->sel.cols[0].colName << "))\n";
+
+        auto tif = db->tablePool[this->sel.cols[0].tableName];
+        auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+        int index = tableIndex[this->sel.cols[0].tableName];
+        varTypes type = cif->columnType;
+        data_ptr m = nullptr;
+
+        for (vector<RID> vr : combinationResult){
+            data_ptr raw = tif->dataFile->getData(vr[index]);
+            tif->cvt->fromByteArray(raw);
+            if (!tif->cvt->isNull(cif->columnName)){
+                data_ptr key = tif->cvt->getRawData(cif->columnName);
+                if ((m == nullptr) || (DataOperands::compare(type, m, key) > 0)){
+                    m = key;
+                }
+            }
+        }
+
+        cout << "(" << DataOperands::toString(type, m) << ")\n";
+    } else if (this->sel.type == SelectorType::COUNT_SELECTOR){
+        cout << "(COUNT(" << this->sel.cols[0].tableName << "." << this->sel.cols[0].colName << "))\n";
+
+        auto tif = db->tablePool[this->sel.cols[0].tableName];
+        auto cif = tif->colInfoMapping[this->sel.cols[0].colName];
+        int index = tableIndex[this->sel.cols[0].tableName];
+        int cnt = 0;
+
+        for (vector<RID> vr : combinationResult){
+            data_ptr raw = tif->dataFile->getData(vr[index]);
+            tif->cvt->fromByteArray(raw);
+            if (!tif->cvt->isNull(cif->columnName)){
+                cnt++;
+            }
+        }
+
+        cout << "(" << cnt << ")\n";
+    } else if (this->sel.type == SelectorType::COUNT_WILD_SELECTOR){
+        cout << "(COUNT(*))\n";
+        int cnt = combinationResult.size();
+        cout << "(" << cnt << ")\n";
     }
 }

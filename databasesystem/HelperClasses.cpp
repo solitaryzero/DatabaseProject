@@ -189,3 +189,16 @@ ColumnSelector::ColumnSelector(vector<Column> *cols){
     this->cols = *cols;
     delete cols;
 }
+
+AggSelector::AggSelector(SelectorType type, Column *col){
+    this->type = type;
+    this->cols = vector<Column>();
+    this->cols.push_back(*col);
+    delete col;
+}
+
+AggSelector::AggSelector(SelectorType type){
+    assert(type == SelectorType::COUNT_WILD_SELECTOR);
+    this->type = type;
+    this->cols = vector<Column>();
+}

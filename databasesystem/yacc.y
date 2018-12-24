@@ -371,6 +371,30 @@ selector        : '*'
                     {
                         $$ = new WildSelector();
                     }
+                | AVG '(' col ')'
+                    {
+                        $$ = new AggSelector(SelectorType::AVG_SELECTOR, $3);
+                    }
+                | SUM '(' col ')'
+                    {
+                        $$ = new AggSelector(SelectorType::SUM_SELECTOR, $3);
+                    }
+                | MIN '(' col ')'
+                    {
+                        $$ = new AggSelector(SelectorType::MIN_SELECTOR, $3);
+                    }
+                | MAX '(' col ')'
+                    {
+                        $$ = new AggSelector(SelectorType::MAX_SELECTOR, $3);
+                    }
+                | COUNT '(' col ')'
+                    {
+                        $$ = new AggSelector(SelectorType::COUNT_SELECTOR, $3);
+                    }
+                | COUNT '(' '*' ')'
+                    {
+                        $$ = new AggSelector(SelectorType::COUNT_WILD_SELECTOR);
+                    }
                 | colSelector
                     {
                         $$ = new ColumnSelector($1);
