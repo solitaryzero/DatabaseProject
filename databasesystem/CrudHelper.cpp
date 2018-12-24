@@ -250,7 +250,8 @@ vector<RID> CrudHelper::getRIDsFrom(shared_ptr<TableInfo> tif, const vector<Wher
 vector<RID> CrudHelper::getRIDsFrom(shared_ptr<TableInfo> tif, const WhereClause &wc){
     auto cif = tif->colInfoMapping[wc.col.colName];
     vector<RID> res;
-    if ((cif->useIndex == 0) || (wc.expr.type == ExprType::COL_EXPR) || (wc.op == WhereOperands::WHERE_OP_LIKE)){
+    if ((cif->useIndex == 0) || (wc.expr.type == ExprType::COL_EXPR) || (wc.op == WhereOperands::WHERE_OP_LIKE) 
+    || (wc.op == WhereOperands::WHERE_OP_ISNULL) || (wc.op == WhereOperands::WHERE_OP_NOTNULL)){
         data_ptr it = tif->dataFile->firstData();
         while (it != nullptr){
             if (CrudHelper::checkCondition(tif->cvt, it, wc)){
