@@ -98,6 +98,7 @@ int DataOperands::compare(varTypes t, data_ptr left, data_ptr right){
             if (lmonth > rmonth) return 1;
             if (lday < rday) return -1;
             if (lday > rday) return 1;
+            return 0;
         }
         default:
             assert(false);

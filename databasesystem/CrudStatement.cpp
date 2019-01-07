@@ -431,6 +431,20 @@ void SelectStatement::run(DatabaseManager *db){
                 cout << "[Error] Column " << wc.col.colName << " cannot be converted from type " << DataOperands::typeName(t2) << "\n";
                 return;
             }
+
+            bool flag = true;
+            wc.expr.val.data = CrudHelper::convert(t1, wc.expr.val, flag);
+            if (!flag){
+                cout << "[Error] Convertion error.\n";
+                return;
+            }
+
+            if (t1 == varTypes::CHAR_TYPE){
+                unsigned int fixedLen = (unsigned int)tif->colInfoMapping[wc.col.colName]->size;
+                while (wc.expr.val.data->size() < fixedLen){
+                    wc.expr.val.data->push_back(' ');
+                }
+            }
         }
     }
 
@@ -466,6 +480,8 @@ void SelectStatement::run(DatabaseManager *db){
                 }
                 cout << ")\n";
             }
+            
+            cout << "[Info] Selected " << res.size() << " records.\n";
         } else if (this->sel.type == SelectorType::WILD_SELECTOR){
             cout << "[Info] Selected " << res.size() << " records.\n";
             cout << "(";
@@ -493,6 +509,8 @@ void SelectStatement::run(DatabaseManager *db){
                 }
                 cout << ")\n";
             }
+
+            cout << "[Info] Selected " << res.size() << " records.\n";
         } else if ((this->sel.type == SelectorType::AVG_SELECTOR) || (this->sel.type == SelectorType::SUM_SELECTOR)){
             if (this->sel.type == SelectorType::AVG_SELECTOR){
                 cout << "(AVG(" << this->sel.cols[0].colName << "))\n";
@@ -826,6 +844,7 @@ void SelectStatement::run(DatabaseManager *db){
             }
             cout << ")\n";
         }
+        cout << "[Info] Selected " << combinationResult.size() << " results.\n";
     } else if (this->sel.type == SelectorType::WILD_SELECTOR){
         cout << "[Info] Selected " << combinationResult.size() << " results.\n";
         cout << "(";
@@ -858,6 +877,7 @@ void SelectStatement::run(DatabaseManager *db){
             }
             cout << ")\n";
         }
+        cout << "[Info] Selected " << combinationResult.size() << " results.\n";
     } else if ((this->sel.type == SelectorType::AVG_SELECTOR) || (this->sel.type == SelectorType::SUM_SELECTOR)){
         if (this->sel.type == SelectorType::AVG_SELECTOR){
             cout << "(AVG(" << this->sel.cols[0].tableName << "." << this->sel.cols[0].colName << "))\n";

@@ -6,7 +6,6 @@
 
 class AbstractRecordFile{
 public:
-    //virtual FixedRecordFile(string filename) = 0;
     virtual ~AbstractRecordFile(){
         
     }
